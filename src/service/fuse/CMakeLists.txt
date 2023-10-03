@@ -33,13 +33,7 @@ if (${HAS_FUSE})
     # target_link_libraries(fuse_client cascade readline fuse3 fuse_client_signals)
     # set_target_properties(fuse_client PROPERTIES OUTPUT_NAME cascade_fuse_client)
 
-    # add_custom_command(TARGET fuse_client POST_BUILD
-    #     	COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/testfuse.py ${CMAKE_CURRENT_BINARY_DIR}/.
-    #     	COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/util.py ${CMAKE_CURRENT_BINARY_DIR}/.
-    #     	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/testfuse.py
-	#         	${CMAKE_CURRENT_SOURCE_DIR}/util.py
-    # 		)
-
+    # copy testfuse.py and util.py to n4
     add_custom_command(TARGET fuse_client_hl POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/fuse_cfg
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg
@@ -51,8 +45,6 @@ if (${HAS_FUSE})
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n2/run.sh
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/run.sh.tmp
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n3/run.sh
-        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/run.sh.tmp
-        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/run.sh
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/clear_log.sh.tmp
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n0/clear_log.sh
 	    COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/clear_log.sh.tmp
@@ -65,6 +57,8 @@ if (${HAS_FUSE})
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/clear_log.sh
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/cascade_fuse_client_hl
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/cascade_fuse_client_hl
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/fuse_put.py
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_put.py
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/fuse_cfg/run.sh.tmp
         COMMENT "prepare fuse node and client configuration"
     )

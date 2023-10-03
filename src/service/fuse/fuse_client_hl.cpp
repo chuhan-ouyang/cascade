@@ -20,7 +20,6 @@
 
 using namespace derecho::cascade;
 
-// TODO segfault debugging
 // stat on invalid path
 
 struct cli_options {
@@ -161,7 +160,6 @@ static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offse
     } else {
         size = 0;
     }
-
     return size;
 }
 
@@ -179,7 +177,6 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     bytes.resize(std::max(bytes.size(), offset + size));  // TODO -ENOMEM
     // TODO potentially undefined?
     memcpy(bytes.data() + offset, buf, size);
-
     return size;
 }
 
@@ -194,12 +191,15 @@ static int cascade_fs_flush(const char* path, struct fuse_file_info* fi) {
 static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
     auto node = fcc()->get(path);
     if((fi->flags & O_ACCMODE) == O_RDONLY) {
+        dbg_default_debug("O_RDONLY");
         return 0;
     }
     if(node == nullptr) {
+        dbg_default_debug("NULLPTR NODE");
         return -ENOENT;
     }
     if(node->data.flag & DIR_FLAG || !node->data.writeable) {
+        dbg_default_debug("Writeable {}", node->data.writeable);
         return -ENOTSUP;
     }
     return fcc()->put_to_capi(node);
