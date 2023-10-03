@@ -149,7 +149,6 @@ struct PathTree {
         if(node == nullptr || replacement == nullptr || node->label != replacement->label || node->parent == nullptr) {
             return false;
         }
-        std::cout << "replacing " << node->absolute_path() << std::endl;
         PathTree<T>* par = node->parent;
         replacement->parent = par;
         par->children[node->label] = replacement;

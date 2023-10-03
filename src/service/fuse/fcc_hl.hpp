@@ -134,7 +134,9 @@ struct FuseClientContext {
 
     Node* add_op_key(const fs::path& path) {
         // invariant: assumes op_root already exists
-        return root->set(path, NodeData(KEY_DIR), NodeData(KEY_FILE));
+        Node* node_ptr = root->set(path, NodeData(KEY_DIR), NodeData(KEY_FILE));
+        node_ptr->data.writeable = true;
+        return node_ptr;
     }
 
     Node* add_op_key_dir(const fs::path& path) {
@@ -331,7 +333,6 @@ struct FuseClientContext {
     }
 
     void update_object_pools() {
-        // TODO use old cached data
         reset_latest();
 
         fill_at(LATEST_PATH, CURRENT_VERSION);
@@ -421,7 +422,6 @@ struct FuseClientContext {
             if(ver == CURRENT_VERSION) {
                 max_ver = std::max(max_ver, reply.version);
                 max_timestamp = std::max(max_timestamp, reply.timestamp_us);
-
                 node->data.writeable = true;
             }
             // TODO std::move ??
@@ -464,7 +464,6 @@ struct FuseClientContext {
     Node* get(const std::string& path) {
         if(should_update()) {
             update_object_pools();
-            // split between update object pool list and update keys
         }
         return root->get(path);
     }
