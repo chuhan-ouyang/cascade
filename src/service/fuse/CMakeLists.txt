@@ -66,6 +66,9 @@ if (${HAS_FUSE})
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/util.py
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/util.py
 
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/util.py
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n5/util.py
+
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/mount.py
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/mount.py
 
@@ -79,7 +82,7 @@ if (${HAS_FUSE})
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/write.py
 
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/snapshot.py
-        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/snapshot.py
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n5/snapshot.py
 
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/fuse_run.sh
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_run.sh
