@@ -59,6 +59,28 @@ if (${HAS_FUSE})
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/cascade_fuse_client_hl
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/fuse_put.py
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_put.py
+
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/testfuse_hl.py
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/testfuse_hl.py
+
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/read.py
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/read.py
+
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/opdir.py
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/opdir.py
+
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/write.py
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/write.py
+
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/snapshot.py
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/snapshot.py
+
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/fuse_run.sh
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_run.sh
+
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/umount.sh
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/umount.sh
+
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/fuse_cfg/run.sh.tmp
         COMMENT "prepare fuse node and client configuration"
     )
