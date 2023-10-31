@@ -30,11 +30,6 @@ from util import (
     wait_for_mount,
 )
 
-def list_directories(path):
-    for root, dirs, files in os.walk(path):
-        for dir_name in dirs:
-            print(os.path.join(root, dir_name))
-
 def list_directories_relative(path, base_directory):
     relative_paths = []
     for root, dirs, files in os.walk(path):
@@ -43,12 +38,15 @@ def list_directories_relative(path, base_directory):
             relative_paths.append(relative_path)
     return relative_paths
 
+# Basic test for all object pools
 def test_opdir():
     print("----------- TEST OPDIR -----------")
-    expected_dirs = ["test/latest", "test/snapshot", "test/latest/pool1",
-                     "test/latest/pool2", "test/latest/pool3",
+    expected_dirs = ["test/latest",
+                     "test/snapshot",
+                     "test/latest/pool1",
+                     "test/latest/pool2",
+                     "test/latest/pool3",
                      "test/latest/.cascade"]
-    current_directory = os.getcwd()
     folder_name = "test"
     base_directory = os.getcwd()
     folder_path = os.path.join(base_directory, folder_name)

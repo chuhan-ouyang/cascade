@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 import errno
 import filecmp
@@ -17,26 +16,36 @@ from contextlib import contextmanager
 from os.path import join as pjoin
 from tempfile import NamedTemporaryFile
 
+from derecho.cascade.external_client import ServiceClientAPI
+from util import (
+    base_cmdline,
+    basename,
+    cleanup,
+    compare_dirs,
+    fuse_proto,
+    powerset,
+    safe_sleep,
+    test_printcap,
+    umount,
+    wait_for_mount,
+)
+
 def simple_mount():
-    # Command 1: Create a directory named "test"
+    print("----------- CASCADE MOUNT -----------")
     mkdir_command = "mkdir test"
-
-    # Command 2: Run ./cascade_fuse_client_hl with options -s and -f test
-    cascade_command = "./cascade_fuse_client_hl -s -f test"
-
+    cascade_command = "./cascade_fuse_client_hl -s test"
     try:
-        # Run the first command to create the directory
         subprocess.Popen(mkdir_command, shell=True).wait()
-
-        # Run the second command to execute ./cascade_fuse_client_hl
+        print("----------- FINISHED MAKE -----------")
         subprocess.Popen(cascade_command, shell=True).wait()
-
         print("Commands executed successfully.")
     except subprocess.CalledProcessError as e:
         print(f"Error executing commands: {e}")
+    print("----------- FINISHED CASCADE MOUNT -----------")
 
 def main(argv):
     simple_mount()
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
