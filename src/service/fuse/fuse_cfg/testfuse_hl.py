@@ -49,7 +49,16 @@ def initial_setup():
     capi.put("/pool2/k2", bytes("p2v2", 'utf-8'))
     capi.put("/pool3/k1", bytes("p3v1", 'utf-8'))
     capi.put("/pool3/k2", bytes("p3v2", 'utf-8'))
+
+    word_to_repeat = "cascade"
+    # 1kb file
+    repetitions = (1024 // len(word_to_repeat)) + 1
+    one_kb_string = word_to_repeat * repetitions
+    encoded_bytes = one_kb_string.encode('utf-8')
+    capi.put("/pool1/1kb", encoded_bytes)
+
     time.sleep(1)
+
     print("----------- FINISHED CASCADE INITIAL SETUP   -----------")
 
 def main(argv):

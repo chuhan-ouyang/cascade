@@ -50,15 +50,22 @@ def read_files_in_directory(relative_dir):
 # Basic test for files and object pools
 def test_read():
     print("----------- TEST READ -----------")
+    word_to_repeat = "cascade"
+    # 1kb file
+    repetitions = (1024 // len(word_to_repeat)) + 1
+    one_kb_string = word_to_repeat * repetitions
+
     expected_contents = {
         'latest/pool1/k1': 'p1v1',
         'latest/pool1/k2': 'p1v2',
+        'latest/pool1/1kb': one_kb_string,
         'latest/pool2/k1': 'p2v1',
         'latest/pool2/k2': 'p2v2',
         'latest/pool3/k1': 'p3v1',
         'latest/pool3/k2': 'p3v2'}
     base_directory = "test"
     actual_contents = read_files_in_directory(base_directory)
+    print(actual_contents)
     assert expected_contents == actual_contents, "File content dictionaries do not match."
     print("----------- PASSED TEST READ -----------")
     return
