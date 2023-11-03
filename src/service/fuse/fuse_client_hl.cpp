@@ -137,8 +137,7 @@ static int cascade_fs_create(const char* path, mode_t mode,
     return cascade_fs_open(path, fi);
 }
 
-static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offset,
-                           struct fuse_file_info* fi) {
+static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
     // auto node = reinterpret_cast<FSTree::Node*>(fi->fh);
     auto node = fcc()->get(path);
     if(node == nullptr) {
@@ -160,6 +159,41 @@ static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offse
     } else {
         size = 0;
     }
+    return size;
+}
+
+static int cascade_fs_read_buf(const char* path, struct fuse_bufvec **bufp,
+			   size_t size, off_t offset, struct fuse_file_info *fi) {
+    std::cout << "Entered cascade fs read buf" << std::endl;
+    struct fuse_bufvec *src;
+    src = (fuse_bufvec*)malloc(sizeof(struct fuse_bufvec));
+    if (src == NULL) return -ENOMEM;
+    *src = FUSE_BUFVEC_INIT(size);
+
+    auto node = fcc()->get(path);
+    if(node == nullptr) {
+        return -ENOENT;
+    }
+    if(node->data.flag & DIR_FLAG) {  // TODO diff error
+        return -EACCES;
+    }
+    src->buf[0].flags = FUSE_BUF_FD_SEEK;
+	src->buf[0].pos = offset;
+
+    auto& bytes = node->data.bytes;
+    size_t len = bytes.size();
+    if((size_t)offset < len) {
+        if(offset + size > len) {
+            size = len - offset;
+        }
+        auto p = reinterpret_cast<char*>(bytes.data());
+	    src->buf[0].mem = p;
+        // memcpy(buf, p + offset, size);
+    } else {
+        size = 0;
+    }
+
+	*bufp = src;
     return size;
 }
 
@@ -392,7 +426,8 @@ static const struct fuse_operations cascade_fs_oper = {
         .init = cascade_fs_init,
         .destroy = cascade_fs_destroy,
         .create = cascade_fs_create,
-        .utimens = cascade_fs_utimens};
+        .utimens = cascade_fs_utimens,
+        .read_buf = cascade_fs_read_buf};
 
 bool prepare_derecho_conf_file(const char* config_dir) {
     // TODO for some reason needs to already be in correct directory ???
