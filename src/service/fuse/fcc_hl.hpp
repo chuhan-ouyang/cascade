@@ -49,11 +49,12 @@ struct NodeData {
     NodeFlag flag;
     // timestamp in microsec
     uint64_t timestamp;
-    std::vector<uint8_t> bytes;
+    std::shared_ptr<uint8_t> bytes;
+    size_t size;
 
     bool writeable;
 
-    NodeData(const NodeFlag flag) : flag(flag), timestamp(0), writeable(false) {
+    NodeData(const NodeFlag flag) : flag(flag), timestamp(0), size(0), writeable(false) {
     }
 };
 
@@ -120,7 +121,11 @@ struct FuseClientContext {
         if(node == nullptr) {
             return nullptr;
         }
-        node->data.bytes = std::vector<uint8_t>(contents.begin(), contents.end());
+        // TODO: data type change
+        std::shared_ptr<uint8_t> data_ptr(new uint8_t[contents.size()]);
+        std::copy(contents.begin(), contents.end(), data_ptr.get());
+        node->data.bytes = data_ptr;
+        node->data.size = contents.size();
         return node;
     }
 
@@ -231,7 +236,8 @@ struct FuseClientContext {
         obj.key = path_while_op(node);
         obj.previous_version = INVALID_VERSION;
         obj.previous_version_by_key = INVALID_VERSION;
-        obj.blob = Blob(node->data.bytes.data(), node->data.bytes.size(), true);
+        // TODO: data type change
+        obj.blob = Blob(node->data.bytes.get(), node->data.size, true);
         // TODO verify emplaced avoids blob deleting data :(
 
         auto result = capi.put(obj);
@@ -387,7 +393,7 @@ struct FuseClientContext {
         } else {
             // TODO somehow even when 0444, can still write ???
             stbuf->st_mode = S_IFREG | (node->data.flag & KEY_FILE ? 0744 : 0444);
-            stbuf->st_size = node->data.bytes.size();
+            stbuf->st_size = node->data.size;
         }
 
         // dev_t st_dev;         /* ID of device containing file */
@@ -426,8 +432,11 @@ struct FuseClientContext {
             }
             // TODO std::move ??
             Blob blob = reply.blob;
-            std::vector<uint8_t> bytes(blob.bytes, blob.bytes + blob.size);
-            node->data.bytes = bytes;
+            // TODO: data type change
+            // std::vector<uint8_t> bytes(blob.bytes, blob.bytes + blob.size);
+            std::shared_ptr<uint8_t> data_ptr(const_cast<uint8_t*>(blob.bytes));
+            node->data.bytes = data_ptr;
+            node->data.size = blob.size;
             node->data.timestamp = reply.timestamp_us;
             return;
         }
@@ -442,8 +451,11 @@ struct FuseClientContext {
             auto reply = reply_future.second.get();
             Blob blob = reply.blob;
             // TODO std::move ??
-            std::vector<uint8_t> bytes(blob.bytes, blob.bytes + blob.size);
-            node->data.bytes = bytes;
+            // TODO: data type change
+            // std::vector<uint8_t> bytes(blob.bytes, blob.bytes + blob.size);
+            std::shared_ptr<uint8_t> data_ptr(const_cast<uint8_t*>(blob.bytes));
+            node->data.bytes = data_ptr;
+            node->data.size = blob.size;
             node->data.timestamp = reply.timestamp_us;
             return;
         }

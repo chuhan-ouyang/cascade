@@ -124,7 +124,9 @@ static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
         return -ENOTSUP;
     }
     if(fi->flags & O_TRUNC) {
-        node->data.bytes.clear();
+        // TODO: data type change
+        node->data.bytes = nullptr;
+        node->data.size = 0;
     }
 
     fi->fh = reinterpret_cast<uint64_t>(node);
@@ -148,13 +150,14 @@ static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offse
     }
     auto& bytes = node->data.bytes;
 
-    size_t len = bytes.size();
+    // TODO: data type change
+    size_t len = node->data.size;
 
     if((size_t)offset < len) {
         if(offset + size > len) {
             size = len - offset;
         }
-        auto p = reinterpret_cast<char*>(bytes.data());
+        auto p = reinterpret_cast<char*>(bytes.get());
         memcpy(buf, p + offset, size);
     } else {
         size = 0;
@@ -181,12 +184,13 @@ static int cascade_fs_read_buf(const char* path, struct fuse_bufvec **bufp,
 	src->buf[0].pos = offset;
 
     auto& bytes = node->data.bytes;
-    size_t len = bytes.size();
+    // TODO: data type change
+    size_t len = node->data.size;
     if((size_t)offset < len) {
         if(offset + size > len) {
             size = len - offset;
         }
-        auto p = reinterpret_cast<char*>(bytes.data());
+        auto p = reinterpret_cast<char*>(bytes.get());
 	    src->buf[0].mem = p;
         // memcpy(buf, p + offset, size);
     } else {
@@ -208,9 +212,15 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     }
     auto& bytes = node->data.bytes;
 
-    bytes.resize(std::max(bytes.size(), offset + size));  // TODO -ENOMEM
+    // TODO: data type change??
+    int new_size = std::max(node->data.size, offset + size);
+    std::shared_ptr<uint8_t> new_dataptr(new uint8_t[new_size]);
+    std::copy(bytes.get(), bytes.get() + node->data.size, new_dataptr.get());
+    node->data.bytes = new_dataptr;
+    node->data.size = new_size;
+    // bytes.resize(std::max(node->data.size, offset + size));  // TODO -ENOMEM
     // TODO potentially undefined?
-    memcpy(bytes.data() + offset, buf, size);
+    memcpy(node->data.bytes.get() + offset, buf, size);
     return size;
 }
 
@@ -268,7 +278,9 @@ static int cascade_fs_unlink(const char* path) {
     // TODO check open
 
     // remove
-    node->data.bytes.clear();
+    // TODO: data type change
+    node->data.bytes = nullptr;
+    node->data.size = 0;
 
     // auto result = capi.remove(key);
     // node->parent->children.erase(node->label);
@@ -309,7 +321,10 @@ static int cascade_fs_truncate(const char* path, off_t size,
     if(node->data.flag & DIR_FLAG || !node->data.writeable) {
         return -EINVAL;
     }
-    node->data.bytes.resize(size, 0);
+    // node->data.bytes.resize(size, 0);
+    // TODO: data type change
+    node->data.bytes = std::shared_ptr<uint8_t>(new uint8_t[size]);
+    node->data.size = size;
     return fcc()->put_to_capi(node);
 }
 
