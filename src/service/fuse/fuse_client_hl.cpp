@@ -153,10 +153,15 @@ static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offse
     // TODO: data type change
     size_t len = node->data.size;
 
+    // offset = start reading
+    // len = node's total size
+    // size = requested size
     if((size_t)offset < len) {
         if(offset + size > len) {
             size = len - offset;
         }
+        std::cout << "offset, len, size: " << offset << ", " << len << ", " << size << std::endl;
+        // 0, len is 4?, and size is 4
         auto p = reinterpret_cast<char*>(bytes.get());
         memcpy(buf, p + offset, size);
     } else {
@@ -190,8 +195,11 @@ static int cascade_fs_read_buf(const char* path, struct fuse_bufvec **bufp,
         if(offset + size > len) {
             size = len - offset;
         }
+        // TODO: ???
         auto p = reinterpret_cast<char*>(bytes.get());
-	    src->buf[0].mem = p;
+	    src->buf[0].mem = (char*)malloc(size * sizeof(char));
+        // TODO: memcpy change!
+        memcpy(src->buf[0].mem, p + offset, size);
         // memcpy(buf, p + offset, size);
     } else {
         size = 0;
@@ -210,13 +218,11 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     if(node->data.flag & DIR_FLAG || !node->data.writeable) {  // TODO diff error
         return -ENOTSUP;
     }
-    auto& bytes = node->data.bytes;
+    // auto& bytes = node->data.bytes;
 
     // TODO: data type change??
     int new_size = std::max(node->data.size, offset + size);
-    std::shared_ptr<uint8_t> new_dataptr(new uint8_t[new_size]);
-    std::copy(bytes.get(), bytes.get() + node->data.size, new_dataptr.get());
-    node->data.bytes = new_dataptr;
+    node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[new_size]);
     node->data.size = new_size;
     // bytes.resize(std::max(node->data.size, offset + size));  // TODO -ENOMEM
     // TODO potentially undefined?
@@ -323,7 +329,7 @@ static int cascade_fs_truncate(const char* path, off_t size,
     }
     // node->data.bytes.resize(size, 0);
     // TODO: data type change
-    node->data.bytes = std::shared_ptr<uint8_t>(new uint8_t[size]);
+    node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[size]);
     node->data.size = size;
     return fcc()->put_to_capi(node);
 }
@@ -441,8 +447,8 @@ static const struct fuse_operations cascade_fs_oper = {
         .init = cascade_fs_init,
         .destroy = cascade_fs_destroy,
         .create = cascade_fs_create,
-        .utimens = cascade_fs_utimens,
-        .read_buf = cascade_fs_read_buf};
+        .utimens = cascade_fs_utimens};
+        //.read_buf = cascade_fs_read_buf};
 
 bool prepare_derecho_conf_file(const char* config_dir) {
     // TODO for some reason needs to already be in correct directory ???

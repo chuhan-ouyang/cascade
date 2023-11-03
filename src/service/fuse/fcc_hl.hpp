@@ -49,7 +49,8 @@ struct NodeData {
     NodeFlag flag;
     // timestamp in microsec
     uint64_t timestamp;
-    std::shared_ptr<uint8_t> bytes;
+    // TODO: data type change
+    std::shared_ptr<uint8_t[]> bytes;
     size_t size;
 
     bool writeable;
@@ -122,10 +123,13 @@ struct FuseClientContext {
             return nullptr;
         }
         // TODO: data type change
-        std::shared_ptr<uint8_t> data_ptr(new uint8_t[contents.size()]);
-        std::copy(contents.begin(), contents.end(), data_ptr.get());
-        node->data.bytes = data_ptr;
+        node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[contents.size()]);
+        std::copy(contents.begin(), contents.end(), node->data.bytes.get());
         node->data.size = contents.size();
+        // TODO: debug!
+        std::cout << "add_op_info" << std::endl;
+        auto str = reinterpret_cast<char*>(node->data.bytes.get());
+        std::cout << "str: " << str << std::endl;
         return node;
     }
 
@@ -434,8 +438,8 @@ struct FuseClientContext {
             Blob blob = reply.blob;
             // TODO: data type change
             // std::vector<uint8_t> bytes(blob.bytes, blob.bytes + blob.size);
-            std::shared_ptr<uint8_t> data_ptr(const_cast<uint8_t*>(blob.bytes));
-            node->data.bytes = data_ptr;
+            node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[blob.size]);
+            memcpy(node->data.bytes.get(), blob.bytes, blob.size);
             node->data.size = blob.size;
             node->data.timestamp = reply.timestamp_us;
             return;
@@ -453,8 +457,8 @@ struct FuseClientContext {
             // TODO std::move ??
             // TODO: data type change
             // std::vector<uint8_t> bytes(blob.bytes, blob.bytes + blob.size);
-            std::shared_ptr<uint8_t> data_ptr(const_cast<uint8_t*>(blob.bytes));
-            node->data.bytes = data_ptr;
+            node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[blob.size]);
+            memcpy(node->data.bytes.get(), blob.bytes, blob.size);
             node->data.size = blob.size;
             node->data.timestamp = reply.timestamp_us;
             return;
