@@ -13,6 +13,7 @@ import sys
 import tempfile
 import threading
 import time
+import json
 from contextlib import contextmanager
 from os.path import join as pjoin
 from tempfile import NamedTemporaryFile
@@ -47,6 +48,12 @@ def read_files_in_directory(relative_dir):
 
     return file_contents_dict
 
+def append_expected_contents(expected_contents):
+    for x in range(1, 101):
+        key = f'latest/pool4/k{x}'
+        value = f'p4v{x}'
+        expected_contents[key] = value
+
 # Basic test for files and object pools
 def test_read():
     print("----------- TEST READ -----------")
@@ -67,10 +74,14 @@ def test_read():
         'latest/pool1/subpool1/k1': 'p1s1v1',
         'latest/pool1/subpool1/subsubpool0/k1': 'p1s1s0v1',}
 
+    # Test for many small files
+    append_expected_contents(expected_contents)
+
     base_directory = "test"
     actual_contents = read_files_in_directory(base_directory)
-    print(actual_contents)
-    assert expected_contents == actual_contents, "File content dictionaries do not match."
+    json_actual = json.dumps(actual_contents, sort_keys=True)
+    json_expected = json.dumps(expected_contents, sort_keys=True)
+    assert json_expected == json_actual, "File content dictionaries do not match."
     print("----------- PASSED TEST READ -----------")
     return
 

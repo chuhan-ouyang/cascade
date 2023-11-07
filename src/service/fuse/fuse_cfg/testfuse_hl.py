@@ -31,6 +31,18 @@ from util import (
     wait_for_mount,
 )
 
+def many_files(capi):
+    base_path = "/pool4/k"
+    data_template = "p4vx"
+    start_x = 1
+    end_x = 100
+
+    for x in range(start_x, end_x + 1):
+        path = f"{base_path}{x}"
+        data = bytes(data_template.replace('x', str(x), 1), 'utf-8')
+        capi.put(path, data)
+
+
 # Create object pools and files
 def initial_setup():
     capi = ServiceClientAPI()
@@ -40,6 +52,7 @@ def initial_setup():
     capi.create_object_pool("/pool1", "PersistentCascadeStoreWithStringKey", 0)
     capi.create_object_pool("/pool2", "PersistentCascadeStoreWithStringKey", 0)
     capi.create_object_pool("/pool3", "PersistentCascadeStoreWithStringKey", 0)
+    capi.create_object_pool("/pool4", "PersistentCascadeStoreWithStringKey", 0)
 
     # Nested object pools
     capi.create_object_pool("/pool1/subpool0/subsubpool0",
@@ -62,8 +75,11 @@ def initial_setup():
     capi.put("/pool1/subpool1/k1", bytes("p1s1v1", 'utf-8'))
     capi.put("/pool1/subpool1/subsubpool0/k1", bytes("p1s1s0v1", 'utf-8'))
 
+    # Many small files
+    many_files(capi)
+
     word_to_repeat = "cascade"
-    # 1kb file
+    # 1kb file (large file)
     repetitions = (1024 // len(word_to_repeat)) + 1
     one_kb_string = word_to_repeat * repetitions
     encoded_bytes = one_kb_string.encode('utf-8')
