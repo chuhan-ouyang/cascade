@@ -447,8 +447,8 @@ static const struct fuse_operations cascade_fs_oper = {
         .init = cascade_fs_init,
         .destroy = cascade_fs_destroy,
         .create = cascade_fs_create,
-        .utimens = cascade_fs_utimens};
-        //.read_buf = cascade_fs_read_buf};
+        .utimens = cascade_fs_utimens,
+        .read_buf = cascade_fs_read_buf};
 
 bool prepare_derecho_conf_file(const char* config_dir) {
     // TODO for some reason needs to already be in correct directory ???
