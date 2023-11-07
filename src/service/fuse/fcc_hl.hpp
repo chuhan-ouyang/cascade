@@ -51,6 +51,8 @@ struct NodeData {
     uint64_t timestamp;
     // TODO: data type change
     std::shared_ptr<uint8_t[]> bytes;
+    std::shared_ptr<void> fd_addr;
+
     size_t size;
 
     bool writeable;

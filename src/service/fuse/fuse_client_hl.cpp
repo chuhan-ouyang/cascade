@@ -178,6 +178,7 @@ static int cascade_fs_read_buf(const char* path, struct fuse_bufvec **bufp,
     if (src == NULL) return -ENOMEM;
     *src = FUSE_BUFVEC_INIT(size);
 
+    // TODO: get should update for all reads (should update)
     auto node = fcc()->get(path);
     if(node == nullptr) {
         return -ENOENT;
@@ -197,13 +198,15 @@ static int cascade_fs_read_buf(const char* path, struct fuse_bufvec **bufp,
         }
         // TODO: ???
         auto p = reinterpret_cast<char*>(bytes.get());
-	    src->buf[0].mem = (char*)malloc(size * sizeof(char));
+	    // src->buf[0].mem = (char*)malloc(size * sizeof(char));
         // TODO: memcpy change!
-        memcpy(src->buf[0].mem, p + offset, size);
+        src->buf[0].mem = p + offset;
+        // memcpy(src->buf[0].mem, p + offset, size);
         // memcpy(buf, p + offset, size);
     } else {
         size = 0;
     }
+
 
 	*bufp = src;
     return size;
