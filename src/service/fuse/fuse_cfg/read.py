@@ -62,7 +62,11 @@ def test_read():
         'latest/pool2/k1': 'p2v1',
         'latest/pool2/k2': 'p2v2',
         'latest/pool3/k1': 'p3v1',
-        'latest/pool3/k2': 'p3v2'}
+        'latest/pool3/k2': 'p3v2',
+        'latest/pool1/subpool0/subsubpool0/k1': 'p1s0s0v1',
+        'latest/pool1/subpool1/k1': 'p1s1v1',
+        'latest/pool1/subpool1/subsubpool0/k1': 'p1s1s0v1',}
+
     base_directory = "test"
     actual_contents = read_files_in_directory(base_directory)
     print(actual_contents)

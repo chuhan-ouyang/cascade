@@ -40,6 +40,13 @@ def initial_setup():
     capi.create_object_pool("/pool1", "PersistentCascadeStoreWithStringKey", 0)
     capi.create_object_pool("/pool2", "PersistentCascadeStoreWithStringKey", 0)
     capi.create_object_pool("/pool3", "PersistentCascadeStoreWithStringKey", 0)
+
+    # Nested object pools
+    capi.create_object_pool("/pool1/subpool0/subsubpool0",
+                             "PersistentCascadeStoreWithStringKey", 0)
+    capi.create_object_pool("/pool1/subpool1/subsubpool0",
+                             "PersistentCascadeStoreWithStringKey", 0)
+
     time.sleep(1)
 
     # Put in object pool
@@ -49,6 +56,11 @@ def initial_setup():
     capi.put("/pool2/k2", bytes("p2v2", 'utf-8'))
     capi.put("/pool3/k1", bytes("p3v1", 'utf-8'))
     capi.put("/pool3/k2", bytes("p3v2", 'utf-8'))
+
+    # Nested puts
+    capi.put("/pool1/subpool0/subsubpool0/k1", bytes("p1s0s0v1", 'utf-8'))
+    capi.put("/pool1/subpool1/k1", bytes("p1s1v1", 'utf-8'))
+    capi.put("/pool1/subpool1/subsubpool0/k1", bytes("p1s1s0v1", 'utf-8'))
 
     word_to_repeat = "cascade"
     # 1kb file
