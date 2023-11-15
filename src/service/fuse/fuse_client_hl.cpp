@@ -233,6 +233,26 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     return size;
 }
 
+static int cascade_fs_write_buf(const char *path, struct fuse_bufvec *buf,
+		     off_t offset, struct fuse_file_info *fi) {
+    auto node = fcc()->get(path);
+    if(node == nullptr) {
+        return -ENOENT;
+    }
+    if(node->data.flag & DIR_FLAG || !node->data.writeable) {  // TODO diff error
+        return -ENOTSUP;
+    }
+    auto flat_buf = &buf->buf[0];
+    int new_size = std::max(node->data.size, offset + flat_buf->size);
+    node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[new_size]);
+    node->data.size = new_size;
+    // bytes.resize(std::max(node->data.size, offset + size));  // TODO -ENOMEM
+    // TODO potentially undefined?
+    memcpy(node->data.bytes.get() + offset, flat_buf->mem, flat_buf->size);
+    return flat_buf->size;
+
+}
+
 /*
 static int cascade_fs_flush(const char* path, struct fuse_file_info* fi) {
     // TODO impl? (release is only called once at end while flush is called many times)
@@ -451,6 +471,7 @@ static const struct fuse_operations cascade_fs_oper = {
         .destroy = cascade_fs_destroy,
         .create = cascade_fs_create,
         .utimens = cascade_fs_utimens,
+        .write_buf = cascade_fs_write_buf,
         .read_buf = cascade_fs_read_buf};
 
 bool prepare_derecho_conf_file(const char* config_dir) {

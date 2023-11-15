@@ -53,6 +53,8 @@ struct NodeData {
     std::shared_ptr<uint8_t[]> bytes;
     std::shared_ptr<void> fd_addr;
 
+    // TODO: boolean has been read
+
     size_t size;
 
     bool writeable;
@@ -215,13 +217,29 @@ struct FuseClientContext {
     }
 
     /*  --- capi related logic ---  */
-
+    /**
+     * update the whole tree
+     * should only update a node, key
+     * granuality = node
+     *
+     * read -> call getNode (cascade.get..)
+    */
     bool should_update() {
         if(time(0) > last_update_sec + update_interval) {
             return true;
         }
         return false;
     }
+
+    // TODO: change
+    // bool should_update(Node n) {
+    //     // always return true
+    //     // if flag for has been read is true, should call capi.get
+    //     if(time(0) > last_update_sec + update_interval) {
+    //         return true;
+    //     }
+    //     return false;
+    // }
 
     std::string path_while_op(const Node* node) const {
         std::vector<std::string> parts;

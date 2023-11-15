@@ -10,6 +10,8 @@ struct PathTree {
     PathTree<T>* parent;
     std::unordered_map<std::string, PathTree<T>*> children;
 
+    // TODO: either add new field called "read" or access the template
+
     PathTree(std::string label, T data, PathTree<T>* parent)
             : label(label), data(data), parent(parent) {}
     PathTree(std::string label, T data) : PathTree(label, data, nullptr) {}
