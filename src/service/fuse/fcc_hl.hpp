@@ -54,13 +54,14 @@ struct NodeData {
     std::shared_ptr<void> fd_addr;
 
     // TODO: boolean has been read
+    bool bytes_freed = false;
 
     size_t size;
 
     bool writeable;
 
-    NodeData(const NodeFlag flag) : flag(flag), timestamp(0), size(0), writeable(false) {
-    }
+    NodeData(const NodeFlag flag) : flag(flag), timestamp(0), bytes_freed(false),
+                                    size(0), writeable(false) { }
 };
 
 namespace derecho {
@@ -97,7 +98,7 @@ struct FuseClientContext {
         max_timestamp = 0;
 
         version_snapshot = ver_snap;
-        dbg_info(DL, "snapshot type: {}", version_snapshot ? "version" : "timestamp");
+        //dbg_info(DL, "snapshot type: {}", version_snapshot ? "version" : "timestamp");
         update_interval = update_int;
         last_update_sec = 0;
 
@@ -200,7 +201,7 @@ struct FuseClientContext {
         auto snapshot = SNAPSHOT_PATH;
         snapshot += "/" + std::to_string(ver);
         auto res = add_snapshot_time(snapshot);
-        dbg_info(DL, "adding {}", snapshot);
+        //dbg_info(DL, "adding {}", snapshot);
         if(res != nullptr) {
             fill_at(snapshot, ver);
         }
@@ -210,7 +211,7 @@ struct FuseClientContext {
         auto snapshot = SNAPSHOT_PATH;
         snapshot += "/" + std::to_string(ts_us);
         auto res = add_snapshot_time(snapshot);
-        dbg_info(DL, "adding {}", snapshot);
+        //dbg_info(DL, "adding {}", snapshot);
         if(res != nullptr) {
             fill_at_by_time(snapshot, ts_us);
         }
@@ -224,6 +225,7 @@ struct FuseClientContext {
      *
      * read -> call getNode (cascade.get..)
     */
+
     bool should_update() {
         if(time(0) > last_update_sec + update_interval) {
             return true;
@@ -232,14 +234,10 @@ struct FuseClientContext {
     }
 
     // TODO: change
-    // bool should_update(Node n) {
-    //     // always return true
-    //     // if flag for has been read is true, should call capi.get
-    //     if(time(0) > last_update_sec + update_interval) {
-    //         return true;
-    //     }
-    //     return false;
-    // }
+    bool should_update(NodeData n) {
+        // if flag for has been read is true, should call capi.get
+        return n.bytes_freed;
+    }
 
     std::string path_while_op(const Node* node) const {
         std::vector<std::string> parts;
@@ -267,8 +265,8 @@ struct FuseClientContext {
         auto result = capi.put(obj);
         for(auto& reply_future : result.get()) {
             auto reply = reply_future.second.get();
-            dbg_info(DL, "node({}) replied with version:{},ts_us:{}",
-                     reply_future.first, std::get<0>(reply), std::get<1>(reply));
+            //dbg_info(DL, "node({}) replied with version:{},ts_us:{}",
+                   //  reply_future.first, std::get<0>(reply), std::get<1>(reply));
         }
         // TODO check for error
 
@@ -327,8 +325,9 @@ struct FuseClientContext {
                 auto node = add_op_key(key_path);
                 // colliding keys do not get added
                 if(node != nullptr) {
+                    std::cout << "k: " << k << std::endl;
                     get_contents(node, k, ver);
-                    // dbg_info(DL, "file: {}", std::quoted(reinterpret_cast<const char*>(node->data.bytes.data())));
+                    // //dbg_info(DL, "file: {}", std::quoted(reinterpret_cast<const char*>(node->data.bytes.data())));
                 }
             }
         }
@@ -356,7 +355,7 @@ struct FuseClientContext {
                 auto node = add_op_key(key_path);
                 if(node != nullptr) {
                     get_contents_by_time(node, k, ts_us);
-                    // dbg_info(DL, "file: {}", std::quoted(reinterpret_cast<const char*>(node->data.bytes.data())));
+                    // //dbg_info(DL, "file: {}", std::quoted(reinterpret_cast<const char*>(node->data.bytes.data())));
                 }
             }
         }
@@ -377,7 +376,7 @@ struct FuseClientContext {
             }
         }
 
-        dbg_info(DL, "updating contents\n{}", string());
+        // //dbg_info(DL, "updating contents\n{}", string());
 
         last_update_sec = time(0);
     }
@@ -456,12 +455,14 @@ struct FuseClientContext {
             }
             // TODO std::move ??
             Blob blob = reply.blob;
-            // TODO: data type change
             // std::vector<uint8_t> bytes(blob.bytes, blob.bytes + blob.size);
+            dbg_default_debug("Reassigned shared_ptr");
             node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[blob.size]);
+            // TODO1: remove memcpy
             memcpy(node->data.bytes.get(), blob.bytes, blob.size);
             node->data.size = blob.size;
             node->data.timestamp = reply.timestamp_us;
+            node->data.bytes_freed = false;
             return;
         }
     }
@@ -496,14 +497,31 @@ struct FuseClientContext {
     }
 
     // make a trash folder? (move on delete)
-
+    // TODO: new change
     Node* get(const std::string& path) {
         if(should_update()) {
             update_object_pools();
         }
-        return root->get(path);
+        Node* node = root->get(path);
+        return node;
     }
     // TODO use object pool root meta file to edit version # and such?
+
+     Node* get_file(const std::string& path) {
+        if(should_update()) {
+            update_object_pools();
+        }
+        Node* node = root->get(path);
+        if (node->data.bytes_freed) {
+            // TODO1: path: should not include "/latest", see /pool1/k1, or /version
+            auto new_path = path.substr(7);
+            std::cout << "new_path: " << new_path << std::endl;
+            get_contents(node, new_path, CURRENT_VERSION);
+        }
+        return node;
+    }
+
+
 
     // TODO cascade metaservice api. need:
     // - get children given path. shouldnt be hard considering op_list_keys works from subdir of op root

@@ -167,6 +167,7 @@ static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offse
     } else {
         size = 0;
     }
+    node->data.bytes_freed = true;
     return size;
 }
 
@@ -179,36 +180,30 @@ static int cascade_fs_read_buf(const char* path, struct fuse_bufvec **bufp,
     *src = FUSE_BUFVEC_INIT(size);
 
     // TODO: get should update for all reads (should update)
-    auto node = fcc()->get(path);
+    auto node = fcc()->get_file(path);
     if(node == nullptr) {
         return -ENOENT;
     }
-    if(node->data.flag & DIR_FLAG) {  // TODO diff error
+    if(node->data.flag & DIR_FLAG) {
         return -EACCES;
     }
     src->buf[0].flags = FUSE_BUF_FD_SEEK;
 	src->buf[0].pos = offset;
 
     auto& bytes = node->data.bytes;
-    // TODO: data type change
     size_t len = node->data.size;
     if((size_t)offset < len) {
         if(offset + size > len) {
             size = len - offset;
         }
-        // TODO: ???
         auto p = reinterpret_cast<char*>(bytes.get());
-	    // src->buf[0].mem = (char*)malloc(size * sizeof(char));
-        // TODO: memcpy change!
         src->buf[0].mem = p + offset;
-        // memcpy(src->buf[0].mem, p + offset, size);
-        // memcpy(buf, p + offset, size);
     } else {
         size = 0;
     }
-
-
 	*bufp = src;
+    node->data.bytes_freed = true;
+    std::cout << "Exited cascade fs read buf" << std::endl;
     return size;
 }
 
