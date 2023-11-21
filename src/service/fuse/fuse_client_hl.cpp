@@ -171,9 +171,13 @@ static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offse
     return size;
 }
 
-static int cascade_fs_read_buf(const char* path, struct fuse_bufvec **bufp,
-			   size_t size, off_t offset, struct fuse_file_info *fi) {
-    std::cout << "Entered cascade fs read buf" << std::endl;
+static void cascade_fs_free_buf(void* buf) {
+    std::cout << "Do Nothing" << std::endl;
+}
+
+static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
+			   size_t size, off_t offset, struct fuse_file_info *fi, void (**free_ptr)(void*)) {
+    std::cout << "Entered cascade fs read buf fptr" << std::endl;
     struct fuse_bufvec *src;
     src = (fuse_bufvec*)malloc(sizeof(struct fuse_bufvec));
     if (src == NULL) return -ENOMEM;
@@ -203,7 +207,10 @@ static int cascade_fs_read_buf(const char* path, struct fuse_bufvec **bufp,
     }
 	*bufp = src;
     node->data.bytes_freed = true;
-    std::cout << "Exited cascade fs read buf" << std::endl;
+
+    std::cout << "Before Assignment" << std::endl;
+    *free_ptr = &cascade_fs_free_buf;
+    std::cout << "Exited cascade fs read buf fptr" << std::endl;
     return size;
 }
 
@@ -467,7 +474,7 @@ static const struct fuse_operations cascade_fs_oper = {
         .create = cascade_fs_create,
         .utimens = cascade_fs_utimens,
         .write_buf = cascade_fs_write_buf,
-        .read_buf = cascade_fs_read_buf};
+        .read_buf_fptr = cascade_fs_read_buf_fptr};
 
 bool prepare_derecho_conf_file(const char* config_dir) {
     // TODO for some reason needs to already be in correct directory ???

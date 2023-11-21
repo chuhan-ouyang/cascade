@@ -499,18 +499,18 @@ struct FuseClientContext {
     // make a trash folder? (move on delete)
     // TODO: new change
     Node* get(const std::string& path) {
-        if(should_update()) {
-            update_object_pools();
-        }
+        // if(should_update()) {
+        //     update_object_pools();
+        // }
         Node* node = root->get(path);
         return node;
     }
     // TODO use object pool root meta file to edit version # and such?
 
      Node* get_file(const std::string& path) {
-        if(should_update()) {
-            update_object_pools();
-        }
+        // if(should_update()) {
+        //     update_object_pools();
+        // }
         Node* node = root->get(path);
         if (node->data.bytes_freed) {
             // TODO1: path: should not include "/latest", see /pool1/k1, or /version
