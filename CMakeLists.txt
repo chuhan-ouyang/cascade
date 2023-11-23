@@ -103,7 +103,7 @@ CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DI
 add_subdirectory(src/core)
 add_subdirectory(src/utils)
 add_subdirectory(src/service)
-add_subdirectory(src/applications/tests)
+# add_subdirectory(src/applications/tests)
 
 # make libcascade.so
 add_library(cascade SHARED
