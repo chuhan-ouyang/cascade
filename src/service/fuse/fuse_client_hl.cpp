@@ -167,12 +167,24 @@ static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offse
     } else {
         size = 0;
     }
-    node->data.bytes_freed = true;
+    node->data.file_valid = true;
     return size;
 }
 
 static void cascade_fs_free_buf(void* buf) {
-    std::cout << "Do Nothing" << std::endl;
+    uint8_t* raw_ptr = static_cast<uint8_t*>(buf);
+    auto& vec = fcc()->fileptrs_in_use;
+    // std::cout << "\nBefore size: " << vec.size() << std::endl;
+    auto it = std::find_if(vec.begin(), vec.end(),
+                           [raw_ptr](const std::shared_ptr<uint8_t[]>& ptr) {
+                               return ptr.get() == raw_ptr;
+                           });
+
+    if (it != vec.end()) {
+        vec.erase(it);
+    }
+    // std::cout << "\nAfter size: " << vec.size() << std::endl;
+    // std::cout << "Removed buf from fileptrs_in_use list" << std::endl;
 }
 
 static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
@@ -206,7 +218,9 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
         size = 0;
     }
 	*bufp = src;
-    node->data.bytes_freed = true;
+    node->data.file_valid = true;
+
+    fcc()->fileptrs_in_use.emplace_back(bytes);
 
     std::cout << "Before Assignment" << std::endl;
     *free_ptr = &cascade_fs_free_buf;

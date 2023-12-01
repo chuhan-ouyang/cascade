@@ -53,14 +53,13 @@ struct NodeData {
     std::shared_ptr<uint8_t[]> bytes;
     std::shared_ptr<void> fd_addr;
 
-    // TODO: boolean has been read
-    bool bytes_freed = false;
+    bool file_valid = false;
 
     size_t size;
 
     bool writeable;
 
-    NodeData(const NodeFlag flag) : flag(flag), timestamp(0), bytes_freed(false),
+    NodeData(const NodeFlag flag) : flag(flag), timestamp(0), file_valid(false),
                                     size(0), writeable(false) { }
 };
 
@@ -86,6 +85,8 @@ struct FuseClientContext {
     std::set<fs::path> local_latest_dirs;
     std::set<persistent::version_t> snapshots;
     std::set<uint64_t> snapshots_by_time;
+
+    std::vector<std::shared_ptr<uint8_t[]>> fileptrs_in_use;
 
     time_t update_interval;
     time_t last_update_sec;
@@ -115,6 +116,7 @@ struct FuseClientContext {
         auto latest = root->get(LATEST_PATH);
         if(latest != nullptr) {
             latest->data = NodeData(LATEST_DIR);
+            // TODO: no need to clear
             latest->children.clear();
         } else {
             root->set(LATEST_PATH, NodeData(LATEST_DIR), NodeData(LATEST_DIR));
@@ -236,7 +238,7 @@ struct FuseClientContext {
     // TODO: change
     bool should_update(NodeData n) {
         // if flag for has been read is true, should call capi.get
-        return n.bytes_freed;
+        return !n.file_valid;
     }
 
     std::string path_while_op(const Node* node) const {
@@ -371,6 +373,7 @@ struct FuseClientContext {
                 // TODO verify for op_root deleted
                 it = local_latest_dirs.erase(it);
             } else {
+                // TODO: new change (co232)
                 add_op_key_dir(*it);
                 ++it;
             }
@@ -460,9 +463,10 @@ struct FuseClientContext {
             node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[blob.size]);
             // TODO1: remove memcpy
             memcpy(node->data.bytes.get(), blob.bytes, blob.size);
+            // node->data.bytes.get() = blob.bytes;
             node->data.size = blob.size;
             node->data.timestamp = reply.timestamp_us;
-            node->data.bytes_freed = false;
+            node->data.file_valid = true;
             return;
         }
     }
@@ -512,7 +516,7 @@ struct FuseClientContext {
         //     update_object_pools();
         // }
         Node* node = root->get(path);
-        if (node->data.bytes_freed) {
+        if (!node->data.file_valid) {
             // TODO1: path: should not include "/latest", see /pool1/k1, or /version
             auto new_path = path.substr(7);
             std::cout << "new_path: " << new_path << std::endl;
