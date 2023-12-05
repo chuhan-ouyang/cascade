@@ -12,7 +12,6 @@
 #include <unistd.h>
 
 #include "fcc_hl.hpp"
-#include "fuse_client_signals.hpp"
 #include <fuse3/fuse_lowlevel.h>
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>

@@ -7,6 +7,7 @@ project(cascade CXX)
 set(cascade_VERSION 1.0rc0)
 set(cascade_build_VERSION 1.0rc0)
 
+
 # C++ STANDARD
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -97,6 +98,13 @@ if (ENABLE_EVALUATION)
     # provides the import target rpclib::rpc
     find_package(rpclib 2.3.0 REQUIRED)
 endif()
+
+# Testing for malloc link interposition
+# add_executable(my_link link_malloc.c)
+
+# set_target_properties(my_link PROPERTIES LINKER_LANGUAGE C)
+# set_target_properties(my_link PROPERTIES LINK_FLAGS "-Wl,--wrap,malloc -Wl,--wrap,free")
+
 
 CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/include/cascade/config.h)
 
