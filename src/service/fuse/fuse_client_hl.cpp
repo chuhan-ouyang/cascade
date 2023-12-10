@@ -83,19 +83,12 @@ static int cascade_fs_getattr(const char* path, struct stat* stbuf,
 static int cascade_fs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
                               off_t offset, struct fuse_file_info* fi,
                               enum fuse_readdir_flags flags) {
-    // TODO offsets for very large reads
-    auto node = fcc()->get(path);
+    std::cout << "Entered cascade_fs_readdir" << std::endl;
+    auto node = fcc()->get_dir(path);
     if(node == nullptr) {
         return -ENOENT;
     }
-    // TODO fill stbuf properly? (check for get_stat errors)
-    // struct stat stbuf;
-    // memset(&stbuf, 0, sizeof(struct stat));
-
-    // FSTree::get_stat(node, &stbuf);
     filler(buf, ".", nullptr, 0, (fuse_fill_dir_flags)0);
-    // TODO parent of root ???
-    // FSTree::get_stat(node->parent, &stbuf);
     filler(buf, "..", nullptr, 0, (fuse_fill_dir_flags)0);
     for(const auto& [k, v] : node->children) {
         if(filler(buf, k.c_str(), nullptr, 0, (fuse_fill_dir_flags)0)) {
@@ -103,15 +96,16 @@ static int cascade_fs_readdir(const char* path, void* buf, fuse_fill_dir_t fille
         }
         // FSTree::get_stat(v, &stbuf);
     }
-
     return 0;
 }
 
 static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
     // TODO check O_ACCMODE, also check if dir ??
+    std::cout << "Entered cascade_fs_open" << std::endl;
     auto node = fcc()->get(path);
     if(fi->flags & O_CREAT && node == nullptr) {
-        node = fcc()->add_op_key(path);
+        // TODO op: modify the second parameter pased in
+        node = fcc()->add_op_key(path, "");
         if(node == nullptr) {
             return -ENOTSUP;
         }
@@ -127,7 +121,8 @@ static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
         node->data.bytes = nullptr;
         node->data.size = 0;
     }
-
+    node->data.file_valid = true;
+    std::cout << "\nExited open" << std::endl;
     fi->fh = reinterpret_cast<uint64_t>(node);
     return 0;
 }
@@ -188,13 +183,13 @@ static void cascade_fs_free_buf(void* buf) {
 
 static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
 			   size_t size, off_t offset, struct fuse_file_info *fi, void (**free_ptr)(void*)) {
-    std::cout << "Entered cascade fs read buf fptr" << std::endl;
+    std::cout << "Entered cascade fs read buf fptr, with size: " << size << std::endl;
     struct fuse_bufvec *src;
     src = (fuse_bufvec*)malloc(sizeof(struct fuse_bufvec));
     if (src == NULL) return -ENOMEM;
     *src = FUSE_BUFVEC_INIT(size);
 
-    // TODO: get should update for all reads (should update)
+    // TODO op: get should update for all reads (should update)
     auto node = fcc()->get_file(path);
     if(node == nullptr) {
         return -ENOENT;
@@ -202,11 +197,15 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
     if(node->data.flag & DIR_FLAG) {
         return -EACCES;
     }
+    node->data.file_valid = false;
     src->buf[0].flags = FUSE_BUF_FD_SEEK;
 	src->buf[0].pos = offset;
 
     auto& bytes = node->data.bytes;
     size_t len = node->data.size;
+    std::cout << "offset: " << offset << std::endl;
+    std::cout << "len: " << len << std::endl;
+    std::cout << "bytes: " << bytes << std::endl;
     if((size_t)offset < len) {
         if(offset + size > len) {
             size = len - offset;
@@ -216,12 +215,11 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
     } else {
         size = 0;
     }
+
+    // fi->fh = reinterpret_cast<uint64_t>(node);
+
 	*bufp = src;
-    node->data.file_valid = true;
-
     fcc()->fileptrs_in_use.emplace_back(bytes);
-
-    std::cout << "Before Assignment" << std::endl;
     *free_ptr = &cascade_fs_free_buf;
     std::cout << "Exited cascade fs read buf fptr" << std::endl;
     return size;
@@ -413,11 +411,9 @@ static int cascade_fs_setxattr(const char* path, const char* name, const char* v
         if(!fcc()->latest && strcmp(name, "user.cascade.version") == 0) {
             fcc()->ver = strtoll(value, nullptr, 0);
             // TODO
-            fcc()->update_object_pools();
             return 0;
         } else if(strcmp(name, "user.cascade.latest") == 0) {
             fcc()->latest = strcmp(value, "1") == 0;
-            fcc()->update_object_pools();
             return 0;
         }
     }

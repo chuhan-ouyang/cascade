@@ -2,6 +2,24 @@
 #include <vector>
 namespace fs = std::filesystem;
 
+enum NodeFlag : uint32_t {
+    ROOT_DIR = 1 << 0,
+
+    OP_PREFIX_DIR = 1 << 1,
+    OP_PATH_DIR = 1 << 2,
+
+    KEY_DIR = 1 << 3,
+    KEY_FILE = 1 << 4,
+
+    LATEST_DIR = 1 << 5,
+
+    METADATA_PREFIX_DIR = 1 << 6,
+    METADATA_INFO_FILE = 1 << 7,
+
+    SNAPSHOT_ROOT_DIR = 1 << 8,
+    SNAPSHOT_TIME_DIR = 1 << 9,
+};
+
 template <typename T>
 struct PathTree {
     std::string label;
@@ -9,11 +27,12 @@ struct PathTree {
 
     PathTree<T>* parent;
     std::unordered_map<std::string, PathTree<T>*> children;
-
-    // TODO: either add new field called "read" or access the template
+    // std::string objp_subdir;
 
     PathTree(std::string label, T data, PathTree<T>* parent)
             : label(label), data(data), parent(parent) {}
+    PathTree(std::string label, PathTree<T>* parent, T data)
+            : label(label), parent(parent), data(data) {}
     PathTree(std::string label, T data) : PathTree(label, data, nullptr) {}
 
     ~PathTree() {
@@ -31,6 +50,7 @@ struct PathTree {
         return res;
     }
 
+    // TODO: try deleting
     std::string absolute_path() const {
         std::vector<std::string> parts;
         for(const PathTree<T>* node = this; node != nullptr; node = node->parent) {
@@ -67,13 +87,15 @@ struct PathTree {
         }
     }
 
-    // returns nullptr on fail or if location already exists
+    // TODO op: set if not exist: bu que (doesn't duo shan); otherwise get existing node
     PathTree<T>* set(const fs::path& path, T intermediate, T data) {
+        std::cout << "\nSet's path: " << path << std::endl;
         if(path.empty()) {
             return nullptr;
         }
         auto it = path.begin();
         if(*it != label) {
+            std::cout << "\n*it != label\n" << std::endl;
             return nullptr;
         }
         bool created_new = false;
@@ -81,7 +103,13 @@ struct PathTree {
         for(++it; it != path.end(); ++it) {
             if(!cur->children.count(*it)) {
                 created_new = true;
-                PathTree<T>* next = new PathTree<T>(*it, intermediate, cur);
+                // parent, data
+                // TODO op: if field of intermediate's NodeFlag type is KEY_DIR or KEY_File
+                // Need to set "next"'s objp_dir to the path
+                PathTree<T>* next = new PathTree<T>(*it, cur, intermediate);
+                // if (intermediate.flag == (KEY_DIR | KEY_FILE)) {
+                   //  next->objp_subdir = path;
+                // }
                 cur->children.insert({*it, next});
                 cur = next;
             } else {
@@ -89,7 +117,8 @@ struct PathTree {
             }
         }
         if(!created_new) {
-            return nullptr;
+            std::cout << "\n!created_new" << std::endl;
+            // return nullptr;
         }
         cur->data = data;
         return cur;
