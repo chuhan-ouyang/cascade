@@ -150,6 +150,9 @@ struct FuseClientContext {
         return path_tree_node;
     }
 
+    /**
+     * Add node for the path, without getting contents for the file
+    */
     Node* add_op_key(const fs::path& path, const std::string& op_path) {
         // invariant: assumes op_root already exists
         Node* node_ptr = root->set(path, NodeData(KEY_DIR, op_path), NodeData(KEY_FILE, op_path));
@@ -310,11 +313,11 @@ struct FuseClientContext {
                 key_path += k;
                 auto node = add_op_key(key_path, op_root);
                 // colliding keys do not get added
-                // if(node != nullptr) {
-                //     std::cout << "k: " << k << std::endl;
-                //     // update_contents(node, k, ver);
-                //     // //dbg_info(DL, "file: {}", std::quoted(reinterpret_cast<const char*>(node->data.bytes.data())));
-                // }
+                if(node == nullptr) {
+                    std::cout << "node is nullptr for key: " << k << std::endl;
+                    // update_contents(node, k, ver);
+                    // //dbg_info(DL, "file: {}", std::quoted(reinterpret_cast<const char*>(node->data.bytes.data())));
+                }
             }
         }
     }
@@ -465,7 +468,8 @@ struct FuseClientContext {
             auto new_path = path.substr(7);
             update_contents(node, new_path, CURRENT_VERSION);
         }
-        std::cout << "File contents: " << std::endl;
+        std::cout << "File contents, label: " << node->label;
+        std::cout << "File valid: " << node->data.file_valid << std::endl;
         std::cout << node->data.bytes << std::endl;
         return node;
     }
@@ -473,10 +477,16 @@ struct FuseClientContext {
     // make a trash folder? (move on delete)
     // TODO op: new change
     Node* get(const std::string& path) {
+        // std::cout << "\nEntered fcc_hl:get: " << path << std::endl;
         Node* node = root->get(path);
+        if (node == nullptr) {
+            std::cout << "\n fcc_hl:Node is nullptr, path: " << path << std::endl;
+            return node;
+        }
         if (node->data.flag == KEY_FILE) {
             get_file(path);
         }
+        // std::cout << "\nExited fcc_hl:get: " << path << std::endl;
         return node;
     }
 
