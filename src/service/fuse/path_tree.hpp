@@ -1,5 +1,7 @@
 #include <filesystem>
 #include <vector>
+#include <derecho/utils/logger.hpp>
+
 namespace fs = std::filesystem;
 
 enum NodeFlag : uint32_t {
@@ -88,14 +90,14 @@ struct PathTree {
     }
 
     // TODO op: set if not exist: bu que (doesn't duo shan); otherwise get existing node
+    // Will return a node ptr no matter if it is newly created or already exists
     PathTree<T>* set(const fs::path& path, T intermediate, T data) {
-        std::cout << "\nSet's path: " << path << std::endl;
         if(path.empty()) {
             return nullptr;
         }
         auto it = path.begin();
         if(*it != label) {
-            std::cout << "\n*it != label\n" << std::endl;
+            dbg_default_trace("In {}, *it != label", __PRETTY_FUNCTION__);
             return nullptr;
         }
         bool created_new = false;
@@ -117,7 +119,7 @@ struct PathTree {
             }
         }
         if(!created_new) {
-            std::cout << "\n!created_new" << std::endl;
+            dbg_default_trace("In {}, !created_new", __PRETTY_FUNCTION__);
             // return nullptr;
         }
         cur->data = data;

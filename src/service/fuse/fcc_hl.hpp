@@ -4,7 +4,6 @@
 
 #include <cascade/object_pool_metadata.hpp>
 #include <cascade/service_client_api.hpp>
-#include <derecho/utils/logger.hpp>
 #include <fuse3/fuse.h>
 #include <memory>
 #include <mutils-containers/KindMap.hpp>
@@ -136,17 +135,17 @@ struct FuseClientContext {
 
     // TODO op: add documentation
     Node* add_full_op_dir(const fs::path& path, const std::string& objp_name) {
-        std::cout << "\nEntered add_full_op_dir" << std::endl;
+        dbg_default_trace("Entered: {}", __PRETTY_FUNCTION__);
         // int, data
         Node* path_tree_node = root->set(path, NodeData(OP_PREFIX_DIR), NodeData(OP_PATH_DIR, objp_name));
         // TODO op: path should not contain /latest
         if (path_tree_node == nullptr) {
-            std::cout << "\n  path_tree_node is nullptr" << std::endl;
+            dbg_default_trace("In {}, path_tree_node is nullptr", __PRETTY_FUNCTION__);
         }
         if (path_tree_node->data.objp_name.empty()) {
-            dbg_default_error("In {}, node's objp_name is empty", __PRETTY_FUNCTION__);
+            dbg_default_trace("In {}, node's objp_name is empty", __PRETTY_FUNCTION__);
         }
-        std::cout << "\nSet path_tree_node's objp_subdir to: " << path << std::endl;
+        dbg_default_trace("In {}, Set path_tree_node's objp_subdir to: {}", __PRETTY_FUNCTION__, path);
         return path_tree_node;
     }
 
@@ -314,7 +313,7 @@ struct FuseClientContext {
                 auto node = add_op_key(key_path, op_root);
                 // colliding keys do not get added
                 if(node == nullptr) {
-                    std::cout << "node is nullptr for key: " << k << std::endl;
+                    dbg_default_trace("In {}, node is nullptr for key: {}", __PRETTY_FUNCTION__, k);
                     // update_contents(node, k, ver);
                     // //dbg_info(DL, "file: {}", std::quoted(reinterpret_cast<const char*>(node->data.bytes.data())));
                 }
@@ -463,14 +462,14 @@ struct FuseClientContext {
      Node* get_file(const std::string& path) {
         Node* node = root->get(path);
         if (!node->data.file_valid) {
-            std::cout << "Getting file contents: " << path << std::endl;
+            dbg_default_trace("In {}, getting file contents: {}", __PRETTY_FUNCTION__, path);
             // TODO op: path: should not include "/latest", see /pool1/k1, or /version
             auto new_path = path.substr(7);
             update_contents(node, new_path, CURRENT_VERSION);
         }
-        std::cout << "File contents, label: " << node->label;
-        std::cout << "File valid: " << node->data.file_valid << std::endl;
-        std::cout << node->data.bytes << std::endl;
+        dbg_default_trace("In {}, file contents, label: {}", __PRETTY_FUNCTION__, node->label);
+        dbg_default_trace("In {}, file valid: {}", __PRETTY_FUNCTION__, node->data.file_valid);
+        dbg_default_trace("In {}, node->data.bytes: {}", __PRETTY_FUNCTION__, node->data.bytes);
         return node;
     }
 
@@ -480,7 +479,7 @@ struct FuseClientContext {
         // std::cout << "\nEntered fcc_hl:get: " << path << std::endl;
         Node* node = root->get(path);
         if (node == nullptr) {
-            std::cout << "\n fcc_hl:Node is nullptr, path: " << path << std::endl;
+            dbg_default_trace("In {}, cc_hl:Node is nullptr, path: {}", __PRETTY_FUNCTION__, path);
             return node;
         }
         if (node->data.flag == KEY_FILE) {
@@ -493,24 +492,24 @@ struct FuseClientContext {
 
     // TODO: add documentation for this function
     void update_dir(Node* node, const fs::path& prefix) {
-        std::cout << "\nEntered update_dir" << std::endl;
+        dbg_default_trace("Entered {}", __PRETTY_FUNCTION__);
         if (node == nullptr) {
-            std::cout << "\nNode is nullptr" << std::endl;
+            dbg_default_trace("In {} node is nullptr", __PRETTY_FUNCTION__);
         }
         if (node->data.objp_name.empty()) {
-            std::cout << "\nEntered node->objp_subdir.empty()" << std::endl;
+            dbg_default_trace("In {} Entered node->objp_subdir.empty()", __PRETTY_FUNCTION__);
             auto str_paths = capi.list_object_pools(false, true);
             for(const std::string& op_root : str_paths) {
                 auto op_root_path = prefix;
                 op_root_path += op_root;
-                std::cout << "  op_root_path: " << op_root_path << std::endl;
+                dbg_default_trace("In {} op_root_path: {}", __PRETTY_FUNCTION__, op_root_path);
                 auto op_root_node = add_full_op_dir(op_root_path, op_root);
                 if(op_root_node == nullptr) {
                     continue;
                 }
             }
         } else {
-            std::cout << "\nEntered !node->objp_subdir.empty()" << std::endl;
+            dbg_default_trace("In {} Entered !node->objp_subdir.empty()", __PRETTY_FUNCTION__);
             // check if readdir will call read_buf by adding prints
             // compile and run first
             // distinguish for which function should call get_dir vs. get_file
@@ -518,7 +517,7 @@ struct FuseClientContext {
             // 2) cha lou using add_op_key and set objp_path
             // 3) try not calling get_contents (empty files)
             std::string op_root = node->data.objp_name;
-            std::cout << "\nop_root: " << op_root << std::endl;
+            dbg_default_trace("In {} op_root: {}", __PRETTY_FUNCTION__, op_root);
             auto keys = get_keys(op_root, CURRENT_VERSION);
             std::sort(keys.begin(), keys.end(), std::greater<>());
             // sort removes files colliding with directory
