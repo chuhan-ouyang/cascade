@@ -79,17 +79,34 @@ def append():
     with open(file_path, "a") as file:
         file.write(existing_content)
 
+def append_expected_contents(expected_contents):
+    for x in range(1, 101):
+        key = f'latest/pool4/k{x}'
+        value = f'p4v{x}'
+        expected_contents[key] = value
+
 # Basic test for creating new files in object pool directories
 def test_write():
     print("----------- TEST WRITE -----------")
+    word_to_repeat = "cascade"
+    # 1kb file
+    repetitions = (1024 // len(word_to_repeat)) + 1
+    one_kb_string = word_to_repeat * repetitions
+
     expected_contents = {
         'latest/pool1/k1': 'p1v1',
         'latest/pool1/k2': 'p1v2',
+        'latest/pool1/1kb': one_kb_string,
         'latest/pool1/k3': 'p1v3', # new file
         'latest/pool2/k1': 'p2v1',
         'latest/pool2/k2': 'new2', # overwrite
         'latest/pool3/k1': 'p3v1',
-        'latest/pool3/k2': 'p3v2p3v2'} #append
+        'latest/pool3/k2': 'p3v2p3v2',
+        'latest/pool1/subpool0/subsubpool0/k1': 'p1s0s0v1',
+        'latest/pool1/subpool1/k1': 'p1s1v1',
+        'latest/pool1/subpool1/subsubpool0/k1': 'p1s1s0v1'} #append
+    append_expected_contents(expected_contents)
+
     base_directory = "test"
     actual_contents = read_files_in_directory(base_directory)
     assert expected_contents == actual_contents, "File content dictionaries do not match."

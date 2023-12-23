@@ -70,12 +70,12 @@ def initial_setup():
     capi.put("/pool3/k1", bytes("p3v1", 'utf-8'))
     capi.put("/pool3/k2", bytes("p3v2", 'utf-8'))
 
-    # Nested puts
+    # # Nested puts
     capi.put("/pool1/subpool0/subsubpool0/k1", bytes("p1s0s0v1", 'utf-8'))
     capi.put("/pool1/subpool1/k1", bytes("p1s1v1", 'utf-8'))
     capi.put("/pool1/subpool1/subsubpool0/k1", bytes("p1s1s0v1", 'utf-8'))
 
-    # Many small files
+    # # Many small files
     many_files(capi)
 
     word_to_repeat = "cascade"

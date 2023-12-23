@@ -1,4 +1,3 @@
-
 import errno
 import filecmp
 import getopt

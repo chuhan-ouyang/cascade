@@ -44,8 +44,13 @@ def test_opdir():
     expected_dirs = ["test/latest",
                      "test/snapshot",
                      "test/latest/pool1",
+                     "test/latest/pool1/subpool0",
+                     "test/latest/pool1/subpool1",
+                     "test/latest/pool1/subpool0/subsubpool0",
+                     "test/latest/pool1/subpool1/subsubpool0",
                      "test/latest/pool2",
                      "test/latest/pool3",
+                     "test/latest/pool4",
                      "test/latest/.cascade"]
     folder_name = "test"
     base_directory = os.getcwd()
