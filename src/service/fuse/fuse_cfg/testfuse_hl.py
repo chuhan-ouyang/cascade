@@ -85,12 +85,27 @@ def initial_setup():
     encoded_bytes = one_kb_string.encode('utf-8')
     capi.put("/pool1/1kb", encoded_bytes)
 
-    time.sleep(1)
+    time.sleep(10)
 
     print("----------- FINISHED CASCADE INITIAL SETUP   -----------")
 
+def simple_mount():
+    print("----------- CASCADE MOUNT -----------")
+    mkdir_command = "mkdir test"
+    cascade_command = "./cascade_fuse_client_hl -s test"
+    try:
+        subprocess.Popen(mkdir_command, shell=True).wait()
+        print("----------- FINISHED MAKE -----------")
+        subprocess.Popen(cascade_command, shell=True).wait()
+        print("Commands executed successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"Error executing commands: {e}")
+    print("----------- FINISHED CASCADE MOUNT -----------")
+
 def main(argv):
     initial_setup()
+    time.sleep(10)    
+    simple_mount()
 
 if __name__ == "__main__":
     main(sys.argv[1:])
