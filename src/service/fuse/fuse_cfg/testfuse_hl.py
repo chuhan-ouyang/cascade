@@ -13,6 +13,12 @@ import sys
 import tempfile
 import threading
 import time
+
+# TODO: refactor
+import read
+import write
+import opdir
+
 from contextlib import contextmanager
 from os.path import join as pjoin
 from tempfile import NamedTemporaryFile
@@ -110,6 +116,23 @@ def main(argv):
     fuse_process = multiprocessing.Process(target=fuse_mount)
     fuse_process.start()
     fuse_process.join()
+    time.sleep(20)
+
+    opdir_process = multiprocessing.Process(target=opdir.test_opdir)
+    opdir_process.start()
+    opdir_process.join()
+    time.sleep(20)
+
+    read_process = multiprocessing.Process(target=read.test_read)
+    read_process.start()
+    read_process.join()
+    time.sleep(20)
+    
+    write_process = multiprocessing.Process(target=write.main)
+    write_process.start()
+    write_process.join()
+    time.sleep(20)
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
