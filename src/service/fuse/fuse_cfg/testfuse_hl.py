@@ -60,7 +60,7 @@ def initial_setup():
     capi.create_object_pool("/pool1/subpool1/subsubpool0",
                              "PersistentCascadeStoreWithStringKey", 0)
 
-    time.sleep(1)
+    time.sleep(5)
 
     # Put in object pool
     capi.put("/pool1/k1", bytes("p1v1", 'utf-8'))
@@ -84,28 +84,32 @@ def initial_setup():
     one_kb_string = word_to_repeat * repetitions
     encoded_bytes = one_kb_string.encode('utf-8')
     capi.put("/pool1/1kb", encoded_bytes)
-
-    time.sleep(10)
-
     print("----------- FINISHED CASCADE INITIAL SETUP   -----------")
 
-def simple_mount():
-    print("----------- CASCADE MOUNT -----------")
-    mkdir_command = "mkdir test"
-    cascade_command = "./cascade_fuse_client_hl -s test"
-    try:
-        subprocess.Popen(mkdir_command, shell=True).wait()
-        print("----------- FINISHED MAKE -----------")
-        subprocess.Popen(cascade_command, shell=True).wait()
-        print("Commands executed successfully.")
-    except subprocess.CalledProcessError as e:
-        print(f"Error executing commands: {e}")
-    print("----------- FINISHED CASCADE MOUNT -----------")
+def fuse_mount():
+    process1 = subprocess.Popen(["mkdir test"], shell=True)
+    process1.wait()   
+    time.sleep(20)
+    
+    if process1.returncode == 0:
+        process2 = subprocess.Popen(["./cascade_fuse_client_hl test -s"], shell=True)
+        process2.wait()  
+        if process2.returncode == 0:
+            print("Both commands executed successfully.")
+        else:
+            print("Error executing the second command.")
+    else:
+        print("Error creating the directory.")
 
 def main(argv):
-    initial_setup()
-    time.sleep(10)    
-    simple_mount()
+    cascade_process = multiprocessing.Process(target=initial_setup)
+    cascade_process.start()
+    cascade_process.join()
+    time.sleep(20)
+
+    fuse_process = multiprocessing.Process(target=fuse_mount)
+    fuse_process.start()
+    fuse_process.join()
 
 if __name__ == "__main__":
     main(sys.argv[1:])
