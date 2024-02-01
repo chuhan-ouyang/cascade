@@ -423,8 +423,11 @@ struct FuseClientContext {
             }
             // TODO std::move ??
             Blob blob = reply.blob;
+            blob.memory_mode = derecho::cascade::object_memory_mode_t::EMPLACED;
             node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[blob.size]);
-            memcpy(node->data.bytes.get(), blob.bytes, blob.size);
+            // memcpy(node->data.bytes.get(), blob.bytes, blob.size);
+
+            node->data.bytes.reset((uint8_t*)blob.bytes);
             node->data.size = blob.size;
             node->data.timestamp = reply.timestamp_us;
             return;
@@ -439,9 +442,13 @@ struct FuseClientContext {
         for(auto& reply_future : result.get()) {
             auto reply = reply_future.second.get();
             Blob blob = reply.blob;
+            blob.memory_mode = derecho::cascade::object_memory_mode_t::EMPLACED;
             // TODO std::move ??
             node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[blob.size]);
-            memcpy(node->data.bytes.get(), blob.bytes, blob.size);
+            
+            // memcpy(node->data.bytes.get(), blob.bytes, blob.size);
+
+            node->data.bytes.reset((uint8_t*)blob.bytes);
             node->data.size = blob.size;
             node->data.timestamp = reply.timestamp_us;
             return;

@@ -262,7 +262,8 @@ static int cascade_fs_write_buf(const char *path, struct fuse_bufvec *buf,
     size_t new_size = std::max(node->data.size, offset + flat_buf->size);
     dbg_default_debug("In {}, node->data.size: {}, new_size: {}", __PRETTY_FUNCTION__, node->data.size, new_size);
     std::shared_ptr<uint8_t[]> new_bytes(new uint8_t[new_size]);
-    memcpy(new_bytes.get(), node->data.bytes.get(), std::min(new_size, node->data.size));
+    // memcpy(new_bytes.get(), node->data.bytes.get(), std::min(new_size, node->data.size));
+    memcpy(new_bytes.get(), node->data.bytes.get(), std::min(static_cast<size_t>(offset), node->data.size));
     node->data.bytes = new_bytes;
     node->data.size = new_size;
     // bytes.resize(std::max(node->data.size, offset + size));  // TODO -ENOMEM
@@ -490,7 +491,7 @@ static const struct fuse_operations cascade_fs_oper = {
         .destroy = cascade_fs_destroy,
         .create = cascade_fs_create,
         .utimens = cascade_fs_utimens,
-        .write_buf = cascade_fs_write_buf,
+        // .write_buf = cascade_fs_write_buf,
         .read_buf_fptr = cascade_fs_read_buf_fptr};
 
 bool prepare_derecho_conf_file(const char* config_dir) {
