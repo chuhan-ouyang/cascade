@@ -4,7 +4,6 @@
 
 #include <cascade/object_pool_metadata.hpp>
 #include <cascade/service_client_api.hpp>
-#include <derecho/utils/logger.hpp>
 #include <fuse3/fuse.h>
 #include <memory>
 #include <mutils-containers/KindMap.hpp>
@@ -16,23 +15,7 @@ namespace fs = std::filesystem;
 
 std::shared_ptr<spdlog::logger> DL;
 
-enum NodeFlag : uint32_t {
-    ROOT_DIR = 1 << 0,
-
-    OP_PREFIX_DIR = 1 << 1,
-    OP_ROOT_DIR = 1 << 2,
-
-    KEY_DIR = 1 << 3,
-    KEY_FILE = 1 << 4,
-
-    LATEST_DIR = 1 << 5,
-
-    METADATA_PREFIX_DIR = 1 << 6,
-    METADATA_INFO_FILE = 1 << 7,
-
-    SNAPSHOT_ROOT_DIR = 1 << 8,
-    SNAPSHOT_TIME_DIR = 1 << 9,
-};
+enum NodeFlag;
 
 /*
 op_get_by_time
@@ -43,18 +26,30 @@ op_list_keys_by_time
 
 const uint32_t FILE_FLAG = KEY_FILE | METADATA_INFO_FILE;
 const uint32_t DIR_FLAG = ~FILE_FLAG;
-const uint32_t OP_FLAG = OP_PREFIX_DIR | OP_ROOT_DIR | KEY_DIR | KEY_FILE;
+const uint32_t OP_FLAG = OP_PREFIX_DIR | OP_PATH_DIR | KEY_DIR | KEY_FILE;
 
 struct NodeData {
     NodeFlag flag;
     // timestamp in microsec
     uint64_t timestamp;
-    std::vector<uint8_t> bytes;
+    std::shared_ptr<uint8_t[]> bytes;
+    std::shared_ptr<void> fd_addr;
+
+    bool file_valid = false;
+
+    // not empty if this node contains a full object pool path (then use list keys)
+    std::string objp_name;
+
+    size_t size;
 
     bool writeable;
 
-    NodeData(const NodeFlag flag) : flag(flag), timestamp(0), writeable(false) {
-    }
+    NodeData(const NodeFlag _flag) : flag(_flag), timestamp(0), file_valid(false),
+                                    size(0), writeable(false) { }
+
+    NodeData(const NodeFlag _flag, const std::string& _objp_name) :
+                                    flag(_flag), timestamp(0), file_valid(false),
+                                    objp_name(_objp_name), size(0), writeable(false) { }
 };
 
 namespace derecho {
@@ -80,6 +75,8 @@ struct FuseClientContext {
     std::set<persistent::version_t> snapshots;
     std::set<uint64_t> snapshots_by_time;
 
+    std::vector<std::shared_ptr<uint8_t[]>> fileptrs_in_use;
+
     time_t update_interval;
     time_t last_update_sec;
 
@@ -91,15 +88,14 @@ struct FuseClientContext {
         max_timestamp = 0;
 
         version_snapshot = ver_snap;
-        dbg_info(DL, "snapshot type: {}", version_snapshot ? "version" : "timestamp");
+        //dbg_info(DL, "snapshot type: {}", version_snapshot ? "version" : "timestamp");
         update_interval = update_int;
-        last_update_sec = 0;
 
         root = std::make_unique<Node>(ROOT, NodeData(ROOT_DIR));
         root->set(SNAPSHOT_PATH, NodeData(SNAPSHOT_ROOT_DIR), NodeData(SNAPSHOT_ROOT_DIR));
         reset_latest();
-
-        update_object_pools();
+        fill_at(LATEST_PATH, CURRENT_VERSION);
+        last_update_sec = time(0);
     }
 
     /*  --- pathtree related logic ---  */
@@ -108,6 +104,7 @@ struct FuseClientContext {
         auto latest = root->get(LATEST_PATH);
         if(latest != nullptr) {
             latest->data = NodeData(LATEST_DIR);
+            // TODO: no need to clear
             latest->children.clear();
         } else {
             root->set(LATEST_PATH, NodeData(LATEST_DIR), NodeData(LATEST_DIR));
@@ -120,7 +117,10 @@ struct FuseClientContext {
         if(node == nullptr) {
             return nullptr;
         }
-        node->data.bytes = std::vector<uint8_t>(contents.begin(), contents.end());
+        node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[contents.size()]);
+        std::copy(contents.begin(), contents.end(), node->data.bytes.get());
+        node->data.size = contents.size();
+        // auto str = reinterpret_cast<char*>(node->data.bytes.get());
         return node;
     }
 
@@ -128,17 +128,42 @@ struct FuseClientContext {
         return root->set(path, NodeData(SNAPSHOT_ROOT_DIR), NodeData(SNAPSHOT_TIME_DIR));
     }
 
-    Node* add_op_root(const fs::path& path) {
-        return root->set(path, NodeData(OP_PREFIX_DIR), NodeData(OP_ROOT_DIR));
+    // TODO op: old app_op_root -> now add_full_op_dir
+    // Node* add_op_root(const fs::path& path) {
+    //     return root->set(path, NodeData(OP_PREFIX_DIR), NodeData(OP_PATH_DIR));
+    // }
+
+    // TODO op: add documentation
+    Node* add_full_op_dir(const fs::path& path, const std::string& objp_name) {
+        dbg_default_trace("Entered: {}", __PRETTY_FUNCTION__);
+        // int, data
+        Node* path_tree_node = root->set(path, NodeData(OP_PREFIX_DIR), NodeData(OP_PATH_DIR, objp_name));
+        // TODO op: path should not contain /latest
+        if (path_tree_node == nullptr) {
+            dbg_default_trace("In {}, path_tree_node is nullptr", __PRETTY_FUNCTION__);
+        }
+        if (path_tree_node->data.objp_name.empty()) {
+            dbg_default_trace("In {}, node's objp_name is empty", __PRETTY_FUNCTION__);
+        }
+        dbg_default_trace("In {}, Set path_tree_node's objp_subdir to: {}", __PRETTY_FUNCTION__, path);
+        return path_tree_node;
     }
 
-    Node* add_op_key(const fs::path& path) {
+    /**
+     * Add node for the path, without getting contents for the file
+    */
+    Node* add_op_key(const fs::path& path, const std::string& op_path) {
         // invariant: assumes op_root already exists
-        Node* node_ptr = root->set(path, NodeData(KEY_DIR), NodeData(KEY_FILE));
+        Node* node_ptr = root->set(path, NodeData(KEY_DIR, op_path), NodeData(KEY_FILE, op_path));
+        // TODO op: check that op_path is correct
+        if (node_ptr->data.objp_name.empty()) {
+            dbg_default_error("In {}, node's objp_name is empty", __PRETTY_FUNCTION__);
+        }
         node_ptr->data.writeable = true;
         return node_ptr;
     }
 
+    // TODO op: change
     Node* add_op_key_dir(const fs::path& path) {
         // invariant: assumes op_root already exists
         return root->set(path, NodeData(KEY_DIR), NodeData(KEY_DIR));
@@ -148,7 +173,7 @@ struct FuseClientContext {
         if(node == nullptr) {
             return nullptr;
         }
-        if(node->parent == nullptr || node->data.flag & OP_ROOT_DIR) {
+        if(node->parent == nullptr || node->data.flag & OP_PATH_DIR) {
             return node;
         }
         if(node->data.flag & (KEY_DIR | KEY_FILE)) {
@@ -187,7 +212,7 @@ struct FuseClientContext {
         auto snapshot = SNAPSHOT_PATH;
         snapshot += "/" + std::to_string(ver);
         auto res = add_snapshot_time(snapshot);
-        dbg_info(DL, "adding {}", snapshot);
+        //dbg_info(DL, "adding {}", snapshot);
         if(res != nullptr) {
             fill_at(snapshot, ver);
         }
@@ -197,19 +222,10 @@ struct FuseClientContext {
         auto snapshot = SNAPSHOT_PATH;
         snapshot += "/" + std::to_string(ts_us);
         auto res = add_snapshot_time(snapshot);
-        dbg_info(DL, "adding {}", snapshot);
+        //dbg_info(DL, "adding {}", snapshot);
         if(res != nullptr) {
             fill_at_by_time(snapshot, ts_us);
         }
-    }
-
-    /*  --- capi related logic ---  */
-
-    bool should_update() {
-        if(time(0) > last_update_sec + update_interval) {
-            return true;
-        }
-        return false;
     }
 
     std::string path_while_op(const Node* node) const {
@@ -231,14 +247,14 @@ struct FuseClientContext {
         obj.key = path_while_op(node);
         obj.previous_version = INVALID_VERSION;
         obj.previous_version_by_key = INVALID_VERSION;
-        obj.blob = Blob(node->data.bytes.data(), node->data.bytes.size(), true);
+        obj.blob = Blob(node->data.bytes.get(), node->data.size, true);
         // TODO verify emplaced avoids blob deleting data :(
 
         auto result = capi.put(obj);
         for(auto& reply_future : result.get()) {
             auto reply = reply_future.second.get();
-            dbg_info(DL, "node({}) replied with version:{},ts_us:{}",
-                     reply_future.first, std::get<0>(reply), std::get<1>(reply));
+            dbg_default_trace("node({}) replied with version:{},ts_us:{}",
+                   reply_future.first, std::get<0>(reply), std::get<1>(reply));
         }
         // TODO check for error
 
@@ -279,26 +295,27 @@ struct FuseClientContext {
         for(const std::string& op_root : str_paths) {
             auto op_root_path = prefix;
             op_root_path += op_root;
-            auto op_root_node = add_op_root(op_root_path);
+            // op_root_path = /latest/..
+            auto op_root_node = add_full_op_dir(op_root_path, op_root);
             if(op_root_node == nullptr) {
+                dbg_default_error("In {}, op root node ({}) is not successfully created", __PRETTY_FUNCTION__, op_root_path);
                 continue;
             }
-
             if(ver == CURRENT_VERSION) {
                 fill_op_meta(prefix, op_root);
             }
-
             auto keys = get_keys(op_root, ver);
             std::sort(keys.begin(), keys.end(), std::greater<>());
             // sort removes files colliding with directory
             for(const auto& k : keys) {
                 auto key_path = prefix;
                 key_path += k;
-                auto node = add_op_key(key_path);
+                auto node = add_op_key(key_path, op_root);
                 // colliding keys do not get added
-                if(node != nullptr) {
-                    get_contents(node, k, ver);
-                    // dbg_info(DL, "file: {}", std::quoted(reinterpret_cast<const char*>(node->data.bytes.data())));
+                if(node == nullptr) {
+                    dbg_default_trace("In {}, node is nullptr for key: {}", __PRETTY_FUNCTION__, k);
+                    // update_contents(node, k, ver);
+                    // //dbg_info(DL, "file: {}", std::quoted(reinterpret_cast<const char*>(node->data.bytes.data())));
                 }
             }
         }
@@ -311,7 +328,7 @@ struct FuseClientContext {
         for(const std::string& op_root : str_paths) {
             auto op_root_path = prefix;
             op_root_path += op_root;
-            auto op_root_node = add_op_root(op_root_path);
+            auto op_root_node = add_full_op_dir(op_root_path, op_root);
             if(op_root_node == nullptr) {
                 continue;
             }
@@ -323,34 +340,15 @@ struct FuseClientContext {
                 auto key_path = prefix;
                 key_path += k;
                 // colliding keys do not get added
-                auto node = add_op_key(key_path);
+                auto node = add_op_key(key_path, op_root);
                 if(node != nullptr) {
                     get_contents_by_time(node, k, ts_us);
-                    // dbg_info(DL, "file: {}", std::quoted(reinterpret_cast<const char*>(node->data.bytes.data())));
+                    // //dbg_info(DL, "file: {}", std::quoted(reinterpret_cast<const char*>(node->data.bytes.data())));
                 }
             }
         }
     }
 
-    void update_object_pools() {
-        reset_latest();
-
-        fill_at(LATEST_PATH, CURRENT_VERSION);
-
-        for(auto it = local_latest_dirs.begin(); it != local_latest_dirs.end();) {
-            if(nearest_object_pool_root(*it) == nullptr) {
-                // TODO verify for op_root deleted
-                it = local_latest_dirs.erase(it);
-            } else {
-                add_op_key_dir(*it);
-                ++it;
-            }
-        }
-
-        dbg_info(DL, "updating contents\n{}", string());
-
-        last_update_sec = time(0);
-    }
 
     int get_stat(Node* node, struct stat* stbuf) {
         if(node == nullptr) {
@@ -366,6 +364,7 @@ struct FuseClientContext {
         int64_t nano = (node->data.timestamp % 1'000'000) * 1000;
         stbuf->st_mtim = timespec{sec, nano};
         stbuf->st_ctim = stbuf->st_mtim;
+        // TODO: need work for how to set last access time
         stbuf->st_atim = timespec{last_update_sec, 0};
         if(uint64_t(last_update_sec) * 1'000'000 < node->data.timestamp) {
             stbuf->st_atim = stbuf->st_mtim;
@@ -387,7 +386,7 @@ struct FuseClientContext {
         } else {
             // TODO somehow even when 0444, can still write ???
             stbuf->st_mode = S_IFREG | (node->data.flag & KEY_FILE ? 0744 : 0444);
-            stbuf->st_size = node->data.bytes.size();
+            stbuf->st_size = node->data.size;
         }
 
         // dev_t st_dev;         /* ID of device containing file */
@@ -413,10 +412,8 @@ struct FuseClientContext {
         return ss.str();
     }
 
-    void get_contents(Node* node, const std::string& path, persistent::version_t ver) {
+    void update_contents(Node* node, const std::string& path, persistent::version_t ver) {
         auto result = capi.get(path, ver, true);
-        // TODO only get file contents on open
-
         for(auto& reply_future : result.get()) {
             auto reply = reply_future.second.get();
             if(ver == CURRENT_VERSION) {
@@ -426,8 +423,12 @@ struct FuseClientContext {
             }
             // TODO std::move ??
             Blob blob = reply.blob;
-            std::vector<uint8_t> bytes(blob.bytes, blob.bytes + blob.size);
-            node->data.bytes = bytes;
+            blob.memory_mode = derecho::cascade::object_memory_mode_t::EMPLACED;
+            node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[blob.size]);
+            // memcpy(node->data.bytes.get(), blob.bytes, blob.size);
+
+            node->data.bytes.reset((uint8_t*)blob.bytes);
+            node->data.size = blob.size;
             node->data.timestamp = reply.timestamp_us;
             return;
         }
@@ -441,9 +442,14 @@ struct FuseClientContext {
         for(auto& reply_future : result.get()) {
             auto reply = reply_future.second.get();
             Blob blob = reply.blob;
+            blob.memory_mode = derecho::cascade::object_memory_mode_t::EMPLACED;
             // TODO std::move ??
-            std::vector<uint8_t> bytes(blob.bytes, blob.bytes + blob.size);
-            node->data.bytes = bytes;
+            node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[blob.size]);
+            
+            // memcpy(node->data.bytes.get(), blob.bytes, blob.size);
+
+            node->data.bytes.reset((uint8_t*)blob.bytes);
+            node->data.size = blob.size;
             node->data.timestamp = reply.timestamp_us;
             return;
         }
@@ -459,19 +465,100 @@ struct FuseClientContext {
         return capi.wait_list_keys(future_result);
     }
 
-    // make a trash folder? (move on delete)
-
-    Node* get(const std::string& path) {
-        if(should_update()) {
-            update_object_pools();
-        }
-        return root->get(path);
-    }
     // TODO use object pool root meta file to edit version # and such?
+     Node* get_file(const std::string& path) {
+        Node* node = root->get(path);
+        if (!node->data.file_valid) {
+            dbg_default_trace("In {}, getting file contents: {}", __PRETTY_FUNCTION__, path);
+            // TODO op: path: should not include "/latest", see /pool1/k1, or /version
+            auto new_path = path.substr(7);
+            update_contents(node, new_path, CURRENT_VERSION);
+        }
+        dbg_default_trace("In {}, file contents, label: {}", __PRETTY_FUNCTION__, node->label);
+        dbg_default_trace("In {}, file valid: {}", __PRETTY_FUNCTION__, node->data.file_valid);
+        dbg_default_trace("In {}, node->data.bytes: {}", __PRETTY_FUNCTION__, node->data.bytes);
+        return node;
+    }
 
-    // TODO cascade metaservice api. need:
-    // - get children given path. shouldnt be hard considering op_list_keys works from subdir of op root
-    // - get file metadata WITHOUT getting file contents (file size, modification time)
+    // make a trash folder? (move on delete)
+    // TODO op: new change
+    Node* get(const std::string& path) {
+        // std::cout << "\nEntered fcc_hl:get: " << path << std::endl;
+        Node* node = root->get(path);
+        if (node == nullptr) {
+            dbg_default_trace("In {}, cc_hl:Node is nullptr, path: {}", __PRETTY_FUNCTION__, path);
+            return node;
+        }
+        if (node->data.flag == KEY_FILE) {
+            get_file(path);
+        }
+        // std::cout << "\nExited fcc_hl:get: " << path << std::endl;
+        return node;
+    }
+
+
+    // TODO: add documentation for this function
+    void update_dir(Node* node, const fs::path& prefix) {
+        dbg_default_trace("Entered {}", __PRETTY_FUNCTION__);
+        if (node == nullptr) {
+            dbg_default_trace("In {} node is nullptr", __PRETTY_FUNCTION__);
+        }
+        if (node->data.objp_name.empty()) {
+            dbg_default_trace("In {} Entered node->objp_subdir.empty()", __PRETTY_FUNCTION__);
+            auto str_paths = capi.list_object_pools(false, true);
+            for(const std::string& op_root : str_paths) {
+                auto op_root_path = prefix;
+                op_root_path += op_root;
+                dbg_default_trace("In {} op_root_path: {}", __PRETTY_FUNCTION__, op_root_path);
+                auto op_root_node = add_full_op_dir(op_root_path, op_root);
+                if(op_root_node == nullptr) {
+                    continue;
+                }
+            }
+        } else {
+            dbg_default_trace("In {} Entered !node->objp_subdir.empty()", __PRETTY_FUNCTION__);
+            // check if readdir will call read_buf by adding prints
+            // compile and run first
+            // distinguish for which function should call get_dir vs. get_file
+            // 1) get capi.list_keys(with path),
+            // 2) cha lou using add_op_key and set objp_path
+            // 3) try not calling get_contents (empty files)
+            std::string op_root = node->data.objp_name;
+            dbg_default_trace("In {} op_root: {}", __PRETTY_FUNCTION__, op_root);
+            auto keys = get_keys(op_root, CURRENT_VERSION);
+            std::sort(keys.begin(), keys.end(), std::greater<>());
+            // sort removes files colliding with directory
+            for(const auto& k : keys) {
+                auto key_path = prefix;
+                key_path += k;
+                auto node = add_op_key(key_path, op_root);
+                // colliding keys do not get added
+                if(node != nullptr) {
+                    // update_contents(node, k, CURRENT_VERSION);
+                    // //dbg_info(DL, "file: {}", std::quoted(reinterpret_cast<const char*>(node->data.bytes.data())));
+                }
+            }
+        }
+
+        // Update local directories that user created via mkdir.
+        // These local directories do not persistent in cascade or are visible to other fuse client processes,
+        // until a file (kv object) is created under the directory, and put to cascade
+        for(auto it = local_latest_dirs.begin(); it != local_latest_dirs.end();) {
+            if(nearest_object_pool_root(*it) == nullptr) {
+                // TODO verify for op_root deleted
+                it = local_latest_dirs.erase(it);
+            } else {
+                add_op_key_dir(*it);
+                ++it;
+            }
+        }
+    }
+
+    Node* get_dir(const std::string& path) {
+        Node* node = root->get(path);
+        update_dir(node, LATEST_PATH);
+        return node;
+    }
 };
 
 }  // namespace cascade

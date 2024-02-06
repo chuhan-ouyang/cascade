@@ -12,7 +12,6 @@
 #include <unistd.h>
 
 #include "fcc_hl.hpp"
-#include "fuse_client_signals.hpp"
 #include <fuse3/fuse_lowlevel.h>
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
@@ -84,19 +83,12 @@ static int cascade_fs_getattr(const char* path, struct stat* stbuf,
 static int cascade_fs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
                               off_t offset, struct fuse_file_info* fi,
                               enum fuse_readdir_flags flags) {
-    // TODO offsets for very large reads
-    auto node = fcc()->get(path);
+    dbg_default_trace("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
+    auto node = fcc()->get_dir(path);
     if(node == nullptr) {
         return -ENOENT;
     }
-    // TODO fill stbuf properly? (check for get_stat errors)
-    // struct stat stbuf;
-    // memset(&stbuf, 0, sizeof(struct stat));
-
-    // FSTree::get_stat(node, &stbuf);
     filler(buf, ".", nullptr, 0, (fuse_fill_dir_flags)0);
-    // TODO parent of root ???
-    // FSTree::get_stat(node->parent, &stbuf);
     filler(buf, "..", nullptr, 0, (fuse_fill_dir_flags)0);
     for(const auto& [k, v] : node->children) {
         if(filler(buf, k.c_str(), nullptr, 0, (fuse_fill_dir_flags)0)) {
@@ -104,15 +96,20 @@ static int cascade_fs_readdir(const char* path, void* buf, fuse_fill_dir_t fille
         }
         // FSTree::get_stat(v, &stbuf);
     }
-
     return 0;
 }
 
 static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
     // TODO check O_ACCMODE, also check if dir ??
+    dbg_default_debug("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path);
+    if (node == nullptr) {
+        dbg_default_debug("In {} fs_open node is nulllptr", __PRETTY_FUNCTION__);
+    }
     if(fi->flags & O_CREAT && node == nullptr) {
-        node = fcc()->add_op_key(path);
+        // TODO op: modify the second parameter pased in
+        dbg_default_debug("In {} fi->flags & O_CREAT && node == nullptr", __PRETTY_FUNCTION__);
+        node = fcc()->add_op_key(path, "");
         if(node == nullptr) {
             return -ENOTSUP;
         }
@@ -124,9 +121,12 @@ static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
         return -ENOTSUP;
     }
     if(fi->flags & O_TRUNC) {
-        node->data.bytes.clear();
+        // TODO: data type change
+        node->data.bytes = nullptr;
+        node->data.size = 0;
     }
-
+    node->data.file_valid = true;
+    dbg_default_debug("Exited {}", __PRETTY_FUNCTION__);
     fi->fh = reinterpret_cast<uint64_t>(node);
     return 0;
 }
@@ -137,8 +137,7 @@ static int cascade_fs_create(const char* path, mode_t mode,
     return cascade_fs_open(path, fi);
 }
 
-static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offset,
-                           struct fuse_file_info* fi) {
+static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
     // auto node = reinterpret_cast<FSTree::Node*>(fi->fh);
     auto node = fcc()->get(path);
     if(node == nullptr) {
@@ -149,22 +148,86 @@ static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offse
     }
     auto& bytes = node->data.bytes;
 
-    size_t len = bytes.size();
+    // TODO: data type change
+    size_t len = node->data.size;
 
+    // offset = start reading
+    // len = node's total size
+    // size = requested size
     if((size_t)offset < len) {
         if(offset + size > len) {
             size = len - offset;
         }
-        auto p = reinterpret_cast<char*>(bytes.data());
+        dbg_default_trace("In {}, offset: {}, len: {}, size: {}", __PRETTY_FUNCTION__, offset, len, size);
+        // 0, len is 4?, and size is 4
+        auto p = reinterpret_cast<char*>(bytes.get());
         memcpy(buf, p + offset, size);
     } else {
         size = 0;
     }
+    node->data.file_valid = true;
+    return size;
+}
+
+static void cascade_fs_free_buf(void* buf) {
+    uint8_t* raw_ptr = static_cast<uint8_t*>(buf);
+    auto& vec = fcc()->fileptrs_in_use;
+    // std::cout << "\nBefore size: " << vec.size() << std::endl;
+    auto it = std::find_if(vec.begin(), vec.end(),
+                           [raw_ptr](const std::shared_ptr<uint8_t[]>& ptr) {
+                               return ptr.get() == raw_ptr;
+                           });
+
+    if (it != vec.end()) {
+        vec.erase(it);
+    }
+    // std::cout << "\nAfter size: " << vec.size() << std::endl;
+    // std::cout << "Removed buf from fileptrs_in_use list" << std::endl;
+}
+
+static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
+			   size_t size, off_t offset, struct fuse_file_info *fi, void (**free_ptr)(void*)) {
+    dbg_default_trace("In {}, with size: {}", __PRETTY_FUNCTION__, size);
+    struct fuse_bufvec *src;
+    src = (fuse_bufvec*)malloc(sizeof(struct fuse_bufvec));
+    if (src == NULL) return -ENOMEM;
+    *src = FUSE_BUFVEC_INIT(size);
+
+    // TODO op: get should update for all reads (should update)
+    auto node = fcc()->get_file(path);
+    if(node == nullptr) {
+        return -ENOENT;
+    }
+    if(node->data.flag & DIR_FLAG) {
+        return -EACCES;
+    }
+    node->data.file_valid = false;
+    src->buf[0].flags = FUSE_BUF_FD_SEEK;
+	src->buf[0].pos = offset;
+
+    auto& bytes = node->data.bytes;
+    size_t len = node->data.size;
+    if((size_t)offset < len) {
+        if(offset + size > len) {
+            size = len - offset;
+        }
+        auto p = reinterpret_cast<char*>(bytes.get());
+        src->buf[0].mem = p + offset;
+    } else {
+        size = 0;
+    }
+
+    // fi->fh = reinterpret_cast<uint64_t>(node);
+
+	*bufp = src;
+    fcc()->fileptrs_in_use.emplace_back(bytes);
+    *free_ptr = &cascade_fs_free_buf;
     return size;
 }
 
 static int cascade_fs_write(const char* path, const char* buf, size_t size,
                             off_t offset, struct fuse_file_info* fi) {
+    dbg_default_debug("In {}, with path: {}", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path);
     if(node == nullptr) {
         return -ENOENT;
@@ -172,13 +235,44 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     if(node->data.flag & DIR_FLAG || !node->data.writeable) {  // TODO diff error
         return -ENOTSUP;
     }
-    auto& bytes = node->data.bytes;
+    // auto& bytes = node->data.bytes;
 
-    bytes.resize(std::max(bytes.size(), offset + size));  // TODO -ENOMEM
+    // TODO: data type change??
+    int new_size = std::max(node->data.size, offset + size);
+    node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[new_size]);
+    node->data.size = new_size;
+    // bytes.resize(std::max(node->data.size, offset + size));  // TODO -ENOMEM
     // TODO potentially undefined?
-    memcpy(bytes.data() + offset, buf, size);
+    memcpy(node->data.bytes.get() + offset, buf, size);
     return size;
 }
+
+static int cascade_fs_write_buf(const char *path, struct fuse_bufvec *buf,
+		     off_t offset, struct fuse_file_info *fi) {
+    dbg_default_debug("In {}, with path: {}", __PRETTY_FUNCTION__, path);
+    auto node = fcc()->get(path);
+    if(node == nullptr) {
+        return -ENOENT;
+    }
+    dbg_default_debug("In {}, after get, node contents: {}", __PRETTY_FUNCTION__, node->data.bytes);
+    if(node->data.flag & DIR_FLAG || !node->data.writeable) {  // TODO diff error
+        return -ENOTSUP;
+    }
+    auto flat_buf = &buf->buf[0];
+    size_t new_size = std::max(node->data.size, offset + flat_buf->size);
+    dbg_default_debug("In {}, node->data.size: {}, new_size: {}", __PRETTY_FUNCTION__, node->data.size, new_size);
+    std::shared_ptr<uint8_t[]> new_bytes(new uint8_t[new_size]);
+    // memcpy(new_bytes.get(), node->data.bytes.get(), std::min(new_size, node->data.size));
+    memcpy(new_bytes.get(), node->data.bytes.get(), std::min(static_cast<size_t>(offset), node->data.size));
+    node->data.bytes = new_bytes;
+    node->data.size = new_size;
+    // bytes.resize(std::max(node->data.size, offset + size));  // TODO -ENOMEM
+    // TODO potentially undefined?
+    dbg_default_debug("In {}, before memcpy, node data: {}", __PRETTY_FUNCTION__, node->data.bytes.get());
+    memcpy(node->data.bytes.get() + offset, flat_buf->mem, flat_buf->size);
+    dbg_default_debug("In {}, after memcpy, node data: {}", __PRETTY_FUNCTION__,  node->data.bytes.get());
+    return flat_buf->size;
+    }
 
 /*
 static int cascade_fs_flush(const char* path, struct fuse_file_info* fi) {
@@ -189,6 +283,7 @@ static int cascade_fs_flush(const char* path, struct fuse_file_info* fi) {
 */
 
 static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
+    dbg_default_trace("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path);
     if((fi->flags & O_ACCMODE) == O_RDONLY) {
         dbg_default_debug("O_RDONLY");
@@ -234,7 +329,9 @@ static int cascade_fs_unlink(const char* path) {
     // TODO check open
 
     // remove
-    node->data.bytes.clear();
+    // TODO: data type change
+    node->data.bytes = nullptr;
+    node->data.size = 0;
 
     // auto result = capi.remove(key);
     // node->parent->children.erase(node->label);
@@ -275,7 +372,10 @@ static int cascade_fs_truncate(const char* path, off_t size,
     if(node->data.flag & DIR_FLAG || !node->data.writeable) {
         return -EINVAL;
     }
-    node->data.bytes.resize(size, 0);
+    // node->data.bytes.resize(size, 0);
+    // TODO: data type change
+    node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[size]);
+    node->data.size = size;
     return fcc()->put_to_capi(node);
 }
 
@@ -320,11 +420,9 @@ static int cascade_fs_setxattr(const char* path, const char* name, const char* v
         if(!fcc()->latest && strcmp(name, "user.cascade.version") == 0) {
             fcc()->ver = strtoll(value, nullptr, 0);
             // TODO
-            fcc()->update_object_pools();
             return 0;
         } else if(strcmp(name, "user.cascade.latest") == 0) {
             fcc()->latest = strcmp(value, "1") == 0;
-            fcc()->update_object_pools();
             return 0;
         }
     }
@@ -392,7 +490,9 @@ static const struct fuse_operations cascade_fs_oper = {
         .init = cascade_fs_init,
         .destroy = cascade_fs_destroy,
         .create = cascade_fs_create,
-        .utimens = cascade_fs_utimens};
+        .utimens = cascade_fs_utimens,
+        // .write_buf = cascade_fs_write_buf,
+        .read_buf_fptr = cascade_fs_read_buf_fptr};
 
 bool prepare_derecho_conf_file(const char* config_dir) {
     // TODO for some reason needs to already be in correct directory ???
