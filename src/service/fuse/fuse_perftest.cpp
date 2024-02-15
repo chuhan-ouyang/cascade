@@ -56,16 +56,18 @@ void read_test(uint32_t kb_size, uint32_t runs, const std::filesystem::path& pat
         }
         auto end = high_resolution_clock::now();
         file.close();
-        timings.push_back(duration<double>(end - start).count());
+        if (i >= 1000) {
+            timings.push_back(duration<double>(end - start).count());
+        }
     }
     double averageTime = 0;
     for (auto time : timings) {
         averageTime += time;
     }
-    averageTime /= runs;
-    std::cout << "Average time to read a newly file " << filePath 
+    averageTime /= (runs - 1000);
+    std::cout << "Average time to read a newly created file " << filePath 
               << " over " << runs << " runs: " << averageTime 
-              << " s\nFile size: " << kb_size << " KB";
+              << " s\nFile size: " << kb_size << " KB\n";
 }
 
 void write_test(uint32_t kb_size, uint32_t runs, const std::filesystem::path& path) {
@@ -90,13 +92,15 @@ void write_test(uint32_t kb_size, uint32_t runs, const std::filesystem::path& pa
         }
         file.close();
         auto end = high_resolution_clock::now();
-        timings.push_back(duration<double>(end - start).count());
+        if (i >= 1000) {
+            timings.push_back(duration<double>(end - start).count());
+        }
     }
     double averageTime = 0;
     for (auto time : timings) {
         averageTime += time;
     }
-    averageTime /= runs;
+    averageTime /= (runs - 1000);
     std::cout << "Average time to write to " << filePath 
               << " over " << runs << " runs: " << averageTime 
               << " s\nFile size: " << kb_size << " KB\n";
@@ -104,7 +108,7 @@ void write_test(uint32_t kb_size, uint32_t runs, const std::filesystem::path& pa
 
 int main() {
     std::filesystem::path objp_path = "test/latest/pool1";
-    // write_test(1, 1000, objp_path);
-    read_test(1, 1000, objp_path);
+    // write_test(1, 100000, objp_path);
+    read_test(1000, 1, objp_path);
     return 0;
 }
