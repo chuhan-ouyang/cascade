@@ -10,6 +10,7 @@
 #include <time.h>
 #include <thread>
 #include <unordered_set>
+#include <derecho/utils/time.h>
 #include <cascade/config.h>
 
 namespace derecho {
@@ -25,11 +26,11 @@ namespace cascade {
 inline uint64_t get_time_ns(bool use_wall_clock = true) {
     struct timespec tv;
     clock_gettime(use_wall_clock?CLOCK_REALTIME:CLOCK_MONOTONIC,&tv);
-    return (tv.tv_sec*1e9+ tv.tv_nsec);
+    return (tv.tv_sec*INT64_1E9 + tv.tv_nsec);
 }
 
 inline uint64_t get_time_us(bool use_wall_clock = true) {
-    return get_time_ns(use_wall_clock)/1e3;
+    return get_time_ns(use_wall_clock)/INT64_1E3;
 }
 
 
@@ -137,7 +138,8 @@ public:
      * Report the latency statistics. The latecy is calculated between events of 'from_type' to events of 'to_type' for
      * each of the event id.
      *
-     * @param from_type     the start point
+     * @param[in]   from_type   the start point
+     * @param[in]   to_type     the end point
      *
      * @return          a 3-tuple for average latency (us), standard deviation (us), and count.
      */
@@ -495,5 +497,12 @@ public:
 
 #endif
 
+/**
+ * Evaluate arithmetic expression
+ * @param   expression  The arithmetic expression
+ *
+ * @return  return value
+ */
+int64_t evaluate_arithmetic_expression(const std::string& expression);
 }
 }
