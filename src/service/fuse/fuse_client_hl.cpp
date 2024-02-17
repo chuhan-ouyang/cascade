@@ -100,16 +100,22 @@ static int cascade_fs_readdir(const char* path, void* buf, fuse_fill_dir_t fille
 }
 
 static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
-    // TODO check O_ACCMODE, also check if dir ??
+    // TODO check O_ACCMODE
     dbg_default_debug("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path);
     if (node == nullptr) {
         dbg_default_debug("In {} fs_open node is nulllptr", __PRETTY_FUNCTION__);
     }
     if(fi->flags & O_CREAT && node == nullptr) {
-        // TODO op: modify the second parameter pased in
+        // If creating a new file, check if part of the path's prefix matches an object pool
+        // If not, return error
+        // Currently not supporting creating object pool from file system client's side
+        auto op_root = fcc()->nearest_object_pool_root(path);
+        if(op_root == nullptr) {
+            return -EACCES; // TODO: Add informative error message
+        }
         dbg_default_debug("In {} fi->flags & O_CREAT && node == nullptr", __PRETTY_FUNCTION__);
-        node = fcc()->add_op_key(path, "");
+        node = fcc()->add_op_key(path, op_root->data.objp_name);
         if(node == nullptr) {
             return -ENOTSUP;
         }
@@ -232,47 +238,18 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     if(node == nullptr) {
         return -ENOENT;
     }
-    if(node->data.flag & DIR_FLAG || !node->data.writeable) {  // TODO diff error
+    if(node->data.flag & DIR_FLAG || !node->data.writeable) {  
         return -ENOTSUP;
     }
-    // auto& bytes = node->data.bytes;
-
-    // TODO: data type change??
-    int new_size = std::max(node->data.size, offset + size);
-    node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[new_size]);
+    size_t new_size = std::max(node->data.size, offset + size);
+    std::shared_ptr<uint8_t[]> new_bytes(new uint8_t[new_size]);
+    memcpy(new_bytes.get(), node->data.bytes.get(), std::min(static_cast<size_t>(offset), node->data.size));
+    node->data.bytes = new_bytes;
     node->data.size = new_size;
-    // bytes.resize(std::max(node->data.size, offset + size));  // TODO -ENOMEM
-    // TODO potentially undefined?
     memcpy(node->data.bytes.get() + offset, buf, size);
     return size;
 }
 
-static int cascade_fs_write_buf(const char *path, struct fuse_bufvec *buf,
-		     off_t offset, struct fuse_file_info *fi) {
-    dbg_default_debug("In {}, with path: {}", __PRETTY_FUNCTION__, path);
-    auto node = fcc()->get(path);
-    if(node == nullptr) {
-        return -ENOENT;
-    }
-    dbg_default_debug("In {}, after get, node contents: {}", __PRETTY_FUNCTION__, node->data.bytes);
-    if(node->data.flag & DIR_FLAG || !node->data.writeable) {  // TODO diff error
-        return -ENOTSUP;
-    }
-    auto flat_buf = &buf->buf[0];
-    size_t new_size = std::max(node->data.size, offset + flat_buf->size);
-    dbg_default_debug("In {}, node->data.size: {}, new_size: {}", __PRETTY_FUNCTION__, node->data.size, new_size);
-    std::shared_ptr<uint8_t[]> new_bytes(new uint8_t[new_size]);
-    // memcpy(new_bytes.get(), node->data.bytes.get(), std::min(new_size, node->data.size));
-    memcpy(new_bytes.get(), node->data.bytes.get(), std::min(static_cast<size_t>(offset), node->data.size));
-    node->data.bytes = new_bytes;
-    node->data.size = new_size;
-    // bytes.resize(std::max(node->data.size, offset + size));  // TODO -ENOMEM
-    // TODO potentially undefined?
-    dbg_default_debug("In {}, before memcpy, node data: {}", __PRETTY_FUNCTION__, node->data.bytes.get());
-    memcpy(node->data.bytes.get() + offset, flat_buf->mem, flat_buf->size);
-    dbg_default_debug("In {}, after memcpy, node data: {}", __PRETTY_FUNCTION__,  node->data.bytes.get());
-    return flat_buf->size;
-    }
 
 /*
 static int cascade_fs_flush(const char* path, struct fuse_file_info* fi) {
@@ -491,7 +468,6 @@ static const struct fuse_operations cascade_fs_oper = {
         .destroy = cascade_fs_destroy,
         .create = cascade_fs_create,
         .utimens = cascade_fs_utimens,
-        // .write_buf = cascade_fs_write_buf,
         .read_buf_fptr = cascade_fs_read_buf_fptr};
 
 bool prepare_derecho_conf_file(const char* config_dir) {
