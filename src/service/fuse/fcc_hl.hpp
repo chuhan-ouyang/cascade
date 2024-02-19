@@ -157,7 +157,7 @@ struct FuseClientContext {
         Node* node_ptr = root->set(path, NodeData(KEY_DIR, op_path), NodeData(KEY_FILE, op_path));
         // TODO op: check that op_path is correct
         if (node_ptr->data.objp_name.empty()) {
-            dbg_default_error("In {}, node's objp_name is empty", __PRETTY_FUNCTION__);
+            dbg_default_error("In {}, path: {}, op_path is empty: {}, node's objp_name is empty", __PRETTY_FUNCTION__, path, op_path.empty());
         }
         node_ptr->data.writeable = true;
         return node_ptr;

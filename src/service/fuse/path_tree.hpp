@@ -89,8 +89,13 @@ struct PathTree {
         }
     }
 
-    // TODO op: set if not exist: bu que (doesn't duo shan); otherwise get existing node
-    // Will return a node ptr no matter if it is newly created or already exists
+    /** 
+     *  @fn create a new node based on the path if the node doesn't exist or update the existing node's data
+     *  @tparam path is the full path name of the final node to set
+     *  @tparam intermediate is the parents' data of final node to set if parent nodes don't exist
+     *  @tparam data is the final node's data to set in the tree 
+     *  @return Will return a node ptr no matter if it is newly created or already exists
+    */
     PathTree<T>* set(const fs::path& path, T intermediate, T data) {
         if(path.empty()) {
             return nullptr;
@@ -102,16 +107,12 @@ struct PathTree {
         }
         bool created_new = false;
         PathTree<T>* cur = this;
+        // Iterate from root to child directory
         for(++it; it != path.end(); ++it) {
+            // Create directory if it is in the path but currently does not exist
             if(!cur->children.count(*it)) {
                 created_new = true;
-                // parent, data
-                // TODO op: if field of intermediate's NodeFlag type is KEY_DIR or KEY_File
-                // Need to set "next"'s objp_dir to the path
                 PathTree<T>* next = new PathTree<T>(*it, cur, intermediate);
-                // if (intermediate.flag == (KEY_DIR | KEY_FILE)) {
-                   //  next->objp_subdir = path;
-                // }
                 cur->children.insert({*it, next});
                 cur = next;
             } else {
@@ -119,7 +120,7 @@ struct PathTree {
             }
         }
         if(!created_new) {
-            dbg_default_trace("In {}, !created_new", __PRETTY_FUNCTION__);
+            dbg_default_trace("In {}, !created_new at path: {}", __PRETTY_FUNCTION__, path);
             // return nullptr;
         }
         cur->data = data;
