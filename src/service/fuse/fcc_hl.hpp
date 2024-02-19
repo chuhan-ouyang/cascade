@@ -81,8 +81,8 @@ struct FuseClientContext {
     time_t last_update_sec;
 
     FuseClientContext(int update_int, bool ver_snap) : capi(ServiceClientAPI::get_service_client()) {
-        DL = LoggerFactory::createLogger("fuse_client", spdlog::level::from_str(derecho::getConfString(CONF_LOGGER_DEFAULT_LOG_LEVEL)));
-        DL->set_pattern("[%T][%n][%^%l%$] %v");
+        // DL = LoggerFactory::createLogger("fuse_client", spdlog::level::from_str(derecho::getConfString(CONF_LOGGER_DEFAULT_LOG_LEVEL)));
+        // DL->set_pattern("[%T][%n][%^%l%$] %v");
 
         max_ver = 0;
         max_timestamp = 0;
