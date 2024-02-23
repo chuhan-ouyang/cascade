@@ -21,6 +21,11 @@ set(DISABLE_DDS_COPY 0)
 set(USE_DDS_TIMESTAMP_LOG 0)
 
 CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/include/cascade_dds/config.h)
+include_directories(${PROJECT_SOURCE_DIR}/include
+                    ${CMAKE_CURRENT_BINARY_DIR}/include)
+
+# Include the directory where dds.hpp is located
+include_directories(${CASCADE_DDS_INCLUDE_DIR})
 
 add_library(cascade_dds SHARED src/dds.cpp)
 target_include_directories(cascade_dds PUBLIC
