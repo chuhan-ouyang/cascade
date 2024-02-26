@@ -51,8 +51,15 @@ if (${HAS_FUSE})
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/clear_log.sh
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/cascade_fuse_client_hl
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/cascade_fuse_client_hl
+
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/fuse_put.py
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_put.py
+
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/test_write.py
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/test_write.py
+
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_perftest.cpp
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_perftest.cpp
 
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/testfuse_hl.py
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/testfuse_hl.py
