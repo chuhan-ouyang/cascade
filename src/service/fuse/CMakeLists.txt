@@ -9,6 +9,7 @@ find_package(derecho CONFIG REQUIRED)
 
 if (${HAS_FUSE})
     add_executable(fuse_client_hl fuse_client_hl.cpp)
+    add_executable(fuse_perftest_put fuse_perftest_put.cpp)
     add_library(link_malloc_obj OBJECT link_malloc.c)
     target_compile_definitions(link_malloc_obj PRIVATE LINKTIME)
 
@@ -18,8 +19,17 @@ if (${HAS_FUSE})
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}>
     )
+    
+    target_include_directories(fuse_perftest_put PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}>
+    )
+
     # target_link_libraries(fuse_client_hl $<TARGET_OBJECTS:link_malloc_obj> cascade readline fuse3)
     target_link_libraries(fuse_client_hl cascade readline fuse3)
+    target_link_libraries(fuse_perftest_put cascade readline fuse3)
 
     set_target_properties(fuse_client_hl PROPERTIES OUTPUT_NAME cascade_fuse_client_hl)
 
@@ -51,6 +61,9 @@ if (${HAS_FUSE})
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/clear_log.sh
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/cascade_fuse_client_hl
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/cascade_fuse_client_hl
+
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_perftest
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/fuse_perftest
 
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/fuse_put.py
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_put.py
