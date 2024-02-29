@@ -10,6 +10,7 @@ find_package(derecho CONFIG REQUIRED)
 if (${HAS_FUSE})
     add_executable(fuse_client_hl fuse_client_hl.cpp)
     add_executable(fuse_perftest_put fuse_perftest_put.cpp)
+    add_executable(fuse_perftest fuse_perftest.cpp)
     add_library(link_malloc_obj OBJECT link_malloc.c)
     target_compile_definitions(link_malloc_obj PRIVATE LINKTIME)
 
@@ -21,6 +22,13 @@ if (${HAS_FUSE})
     )
     
     target_include_directories(fuse_perftest_put PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}>
+    )
+
+    target_include_directories(fuse_perftest PRIVATE
         $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
@@ -62,17 +70,17 @@ if (${HAS_FUSE})
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/cascade_fuse_client_hl
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/cascade_fuse_client_hl
 
-        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_perftest
-        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/fuse_perftest
-
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/fuse_put.py
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_put.py
 
-        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/test_write.py
+        COMMAND ln -sf ${CMAKE_CURRENT_SOURCE_DIR}/test_write.py
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/test_write.py
+        
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_perftest_put
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_perftest_put
 
-        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_perftest.cpp
-        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_perftest.cpp
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_perftest
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_perftest
 
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/testfuse_hl.py
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/testfuse_hl.py

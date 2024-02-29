@@ -4,112 +4,86 @@
 #include <vector>
 #include <filesystem> 
 #include <string>
+#include <cstdlib>
+#include <unistd.h>
+#include <cstdint>  
+#include <cstring>  
 
-void createFile(const std::filesystem::path& filePath, size_t fileSize) {
-    std::ofstream file(filePath, std::ios::binary | std::ios::trunc);
-    if (!file) {
-        std::cerr << "File could not be opened for writing at " << filePath << ".\n";
-        exit(1);
-    }
-    const std::string data = "cascade";
-    size_t written = 0;
-    while (written < fileSize) {
-        file << data;
-        written += data.size();
-    }
-    file.close();  
-}
-
-bool verifyContent(const std::vector<char>& buffer, const std::string& expectedWord) {
-    std::string bufferContent(buffer.begin(), buffer.end());
-    std::cout << bufferContent << std::endl;
-    size_t pos = 0;
-    while (pos < bufferContent.size()) {
-        size_t nextPos = bufferContent.find(expectedWord, pos);
-        if (nextPos != pos) {
-            return false;
-        }
-        pos = nextPos + expectedWord.size();
-    }
-    return true; 
-}
-
-
-void read_test(uint32_t kb_size, uint32_t runs, const std::filesystem::path& path) {
-    using namespace std::chrono;
-    const std::filesystem::path filePath = path / "read_file.txt";
-    std::filesystem::create_directories(path);
-
-    std::vector<double> timings;
-    size_t fileSize = kb_size * 1024; 
-    createFile(filePath, fileSize);
+void read_test(uint32_t file_size, uint32_t runs, const std::filesystem::path& path) {
+    std::filesystem::create_directories("perf");
+    std::filesystem::path read_path = path / "read_test";
+    std::ofstream perf_file("perf/read_perf.csv", std::ios::binary);
+    std::ofstream verify_file("perf/read_verify.txt", std::ios::binary);
+    double total_time = 0;
     for (int i = 0; i < runs; ++i) {
-        std::ifstream file(filePath, std::ios::binary);
-        if (!file) {
-            std::cerr << "File could not be opened for reading at " << filePath << ".\n";
-        }
-        std::vector<char> buffer(fileSize);
-        auto start = high_resolution_clock::now();
-        if (!file.read(buffer.data(), fileSize)) {
-            std::cerr << "Error reading file on run " << i+1 << ".\n";
-            file.close();
-            continue;
-        }
-        auto end = high_resolution_clock::now();
+        std::ifstream file(read_path, std::ios::binary);
+        char *buffer = static_cast<char*>(malloc(file_size + 1));
+        auto start = std::chrono::high_resolution_clock::now();
+        file.read(buffer, file_size);
+        auto end = std::chrono::high_resolution_clock::now();
         file.close();
-        if (i >= 1000) {
-            timings.push_back(duration<double>(end - start).count());
-        }
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        total_time += duration.count();
+        perf_file << "Run " << i + 1 << " : " << duration.count() << " ns\n";
+        verify_file.write(reinterpret_cast<const char*>(buffer), file_size);
+        verify_file.close();
+        usleep(10000);
     }
-    double averageTime = 0;
-    for (auto time : timings) {
-        averageTime += time;
-    }
-    averageTime /= (runs - 1000);
-    std::cout << "Average time to read a newly created file " << filePath 
-              << " over " << runs << " runs: " << averageTime 
-              << " s\nFile size: " << kb_size << " KB\n";
+    double averageTime = total_time / runs;
+    perf_file << "Average time to read " << read_path 
+              << " over " << runs << " runs: " << averageTime << " ns"
+              << " \nFile size: " << file_size << " bytes\n";
 }
 
-void write_test(uint32_t kb_size, uint32_t runs, const std::filesystem::path& path) {
-    using namespace std::chrono;
-    const std::string word = "cascade";
-    const size_t wordSize = word.size();
-    const size_t fileSize = kb_size * 1024;
-    const size_t repetitions = fileSize / wordSize;
-
-    std::vector<double> timings;
-    std::ofstream file;
-    std::filesystem::create_directories(path);
-    const std::filesystem::path filePath = path / "benchmark_file.txt";
+void write_test(uint32_t file_size, uint32_t runs, const std::filesystem::path& path) {
+    std::filesystem::create_directories("perf");
+    std::ofstream perf_file("perf/write_perf.csv", std::ios::binary);
+    std::filesystem::path write_path = path / "write_test";
+    char *buffer = static_cast<char*>(malloc(file_size + 1));
+    for (size_t i = 0; i < file_size; i++) {
+        buffer[i] = '1';
+    }
+    double total_time = 0;
     for (int i = 0; i < runs; ++i) {
-        file.open(filePath, std::ios::binary | std::ios::trunc);
-        if (!file) {
-            std::cerr << "File could not be opened at " << filePath << ".\n";
-        }
-        auto start = high_resolution_clock::now();
-        for (size_t j = 0; j < repetitions; ++j) {
-            file << word;
-        }
+        std::ofstream file(write_path, std::ios::binary);
+        auto start = std::chrono::high_resolution_clock::now();
+        file.write(buffer, file_size);
+        auto end = std::chrono::high_resolution_clock::now();
         file.close();
-        auto end = high_resolution_clock::now();
-        if (i >= 1000) {
-            timings.push_back(duration<double>(end - start).count());
-        }
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        total_time += duration.count();
+        perf_file << "Run " << i + 1 << " : " << duration.count() << " ns\n";
+        usleep(10000);
     }
-    double averageTime = 0;
-    for (auto time : timings) {
-        averageTime += time;
-    }
-    averageTime /= (runs - 1000);
-    std::cout << "Average time to write to " << filePath 
-              << " over " << runs << " runs: " << averageTime 
-              << " s\nFile size: " << kb_size << " KB\n";
+    double averageTime = total_time / runs;
+    perf_file << "Average time to write " << write_path 
+              << " over " << runs << " runs: " << averageTime << " ns"
+              << " \nFile size: " << file_size << " bytes\n";
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <read/write> <file size in KB>\n";
+        return 1;
+    }
+    std::string operation = argv[1];  
+    int fileSizeKB = std::atoi(argv[2]);  
+    if (operation != "read" && operation != "write") {
+        std::cerr << "Invalid operation. Please use 'read' or 'write'.\n";
+        return 1;
+    }
+    if (fileSizeKB <= 0) {
+        std::cerr << "Invalid file size. Please specify a positive integer for file size in KB.\n";
+        return 1;
+    }
+    std::cout << "Operation: " << operation << "\n";
+    std::cout << "File size: " << fileSizeKB << " KB\n";
+    size_t file_size = fileSizeKB * 1024; 
     std::filesystem::path objp_path = "test/latest/pool1";
-    // write_test(1, 100000, objp_path);
-    read_test(1000, 1, objp_path);
+    if (operation == "read") {
+        read_test(file_size, 1, objp_path);
+    } else if (operation == "write") {
+        write_test(file_size, 1, objp_path);
+    }
     return 0;
 }
