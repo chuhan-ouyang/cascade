@@ -38,6 +38,7 @@ if (${HAS_FUSE})
     # target_link_libraries(fuse_client_hl $<TARGET_OBJECTS:link_malloc_obj> cascade readline fuse3)
     target_link_libraries(fuse_client_hl cascade readline fuse3)
     target_link_libraries(fuse_perftest_put cascade readline fuse3)
+    target_link_libraries(fuse_perftest cascade readline fuse3)
 
     set_target_properties(fuse_client_hl PROPERTIES OUTPUT_NAME cascade_fuse_client_hl)
 

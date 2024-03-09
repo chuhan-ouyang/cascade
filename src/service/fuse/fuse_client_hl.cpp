@@ -19,8 +19,9 @@
 
 using namespace derecho::cascade;
 
-// stat on invalid path
+#define AFTER_CASCADE_READ 1003
 
+// stat on invalid path
 struct cli_options {
     const char* client_dir;
     int update_interval;
@@ -60,8 +61,10 @@ static void* cascade_fs_init(struct fuse_conn_info* conn,
                              struct fuse_config* cfg) {
     // TODO why read conf_layout_json_layout?
     // TODO don't like no control over derecho config
-
-    return new FuseClientContext(options.update_interval, options.by_version);
+    dbg_default_error("Entered {}", __PRETTY_FUNCTION__);
+    void* res = new FuseClientContext(options.update_interval, options.by_version);
+    dbg_default_error("Exited {}", __PRETTY_FUNCTION__);
+    return res;
 }
 
 static void cascade_fs_destroy(void* private_data) {
@@ -70,12 +73,16 @@ static void cascade_fs_destroy(void* private_data) {
 
 static int cascade_fs_getattr(const char* path, struct stat* stbuf,
                               struct fuse_file_info* fi) {
+    dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path);
+    node->data.file_valid = true;
     if(node == nullptr) {
         return -ENOENT;
     }
     memset(stbuf, 0, sizeof(struct stat));
-    return fcc()->get_stat(node, stbuf);
+    int res = fcc()->get_stat(node, stbuf);
+    dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
+    return res;
 }
 
 // TODO :( invalid pointer dumped?? somehow cascade replys needs to be stored in a variable before
@@ -83,7 +90,7 @@ static int cascade_fs_getattr(const char* path, struct stat* stbuf,
 static int cascade_fs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
                               off_t offset, struct fuse_file_info* fi,
                               enum fuse_readdir_flags flags) {
-    dbg_default_trace("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
+    dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get_dir(path);
     if(node == nullptr) {
         return -ENOENT;
@@ -96,12 +103,13 @@ static int cascade_fs_readdir(const char* path, void* buf, fuse_fill_dir_t fille
         }
         // FSTree::get_stat(v, &stbuf);
     }
+    dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return 0;
 }
 
 static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
     // TODO check O_ACCMODE
-    dbg_default_debug("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
+    dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path);
     if (node == nullptr) {
         dbg_default_debug("In {} fs_open node is nulllptr", __PRETTY_FUNCTION__);
@@ -132,15 +140,18 @@ static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
         node->data.size = 0;
     }
     node->data.file_valid = true;
-    dbg_default_debug("Exited {}", __PRETTY_FUNCTION__);
     fi->fh = reinterpret_cast<uint64_t>(node);
+    dbg_default_debug("Exited {}", __PRETTY_FUNCTION__);
     return 0;
 }
 
 static int cascade_fs_create(const char* path, mode_t mode,
                              struct fuse_file_info* fi) {
     // TODO check mode ? currently ignores
-    return cascade_fs_open(path, fi);
+    dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
+    int res = cascade_fs_open(path, fi);
+    dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
+    return res;
 }
 
 static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
@@ -164,7 +175,6 @@ static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offse
         if(offset + size > len) {
             size = len - offset;
         }
-        dbg_default_trace("In {}, offset: {}, len: {}, size: {}", __PRETTY_FUNCTION__, offset, len, size);
         // 0, len is 4?, and size is 4
         auto p = reinterpret_cast<char*>(bytes.get());
         memcpy(buf, p + offset, size);
@@ -172,6 +182,10 @@ static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offse
         size = 0;
     }
     node->data.file_valid = true;
+    TimestampLogger::log(AFTER_CASCADE_READ,fcc()->node_id,fcc()->extract_number(path),get_walltime());
+    std::filesystem::path curr_path = std::filesystem::current_path();
+    std::filesystem::path logger_path = curr_path / "fuse_client_logger.csv";
+    TimestampLogger::flush("/root/workspace/cascade/build-Release/src/service/fuse/fuse_cfg/n4/fuse_client_logger.csv", false);
     return size;
 }
 
@@ -193,7 +207,7 @@ static void cascade_fs_free_buf(void* buf) {
 
 static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
 			   size_t size, off_t offset, struct fuse_file_info *fi, void (**free_ptr)(void*)) {
-    dbg_default_trace("In {}, with size: {}", __PRETTY_FUNCTION__, size);
+    dbg_default_error("Entered {}, with path: {}", __PRETTY_FUNCTION__, path);
     struct fuse_bufvec *src;
     src = (fuse_bufvec*)malloc(sizeof(struct fuse_bufvec));
     if (src == NULL) return -ENOMEM;
@@ -207,7 +221,6 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
     if(node->data.flag & DIR_FLAG) {
         return -EACCES;
     }
-    node->data.file_valid = false;
     src->buf[0].flags = FUSE_BUF_FD_SEEK;
 	src->buf[0].pos = offset;
 
@@ -228,12 +241,18 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
 	*bufp = src;
     fcc()->fileptrs_in_use.emplace_back(bytes);
     *free_ptr = &cascade_fs_free_buf;
+    node->data.file_valid = true;
+    TimestampLogger::log(AFTER_CASCADE_READ,fcc()->node_id,fcc()->extract_number(path),get_walltime());
+    std::filesystem::path curr_path = std::filesystem::current_path();
+    std::filesystem::path logger_path = curr_path / "fuse_client_logger.csv";
+    TimestampLogger::flush("/root/workspace/cascade/build-Release/src/service/fuse/fuse_cfg/n4/fuse_client_logger.csv", false);
+    dbg_default_error("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
     return size;
 }
 
 static int cascade_fs_write(const char* path, const char* buf, size_t size,
                             off_t offset, struct fuse_file_info* fi) {
-    dbg_default_debug("In {}, with path: {}", __PRETTY_FUNCTION__, path);
+    dbg_default_error("Entered {}, with path: {}", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path);
     if(node == nullptr) {
         return -ENOENT;
@@ -247,9 +266,9 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     node->data.bytes = new_bytes;
     node->data.size = new_size;
     memcpy(node->data.bytes.get() + offset, buf, size);
+    dbg_default_error("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
     return size;
 }
-
 
 /*
 static int cascade_fs_flush(const char* path, struct fuse_file_info* fi) {
@@ -260,7 +279,7 @@ static int cascade_fs_flush(const char* path, struct fuse_file_info* fi) {
 */
 
 static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
-    dbg_default_trace("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
+    dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path);
     if((fi->flags & O_ACCMODE) == O_RDONLY) {
         dbg_default_debug("O_RDONLY");
@@ -274,10 +293,13 @@ static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
         dbg_default_debug("Writeable {}", node->data.writeable);
         return -ENOTSUP;
     }
-    return fcc()->put_to_capi(node);
+    int res = fcc()->put_to_capi(node);
+    dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
+    return res;
 }
 
 static int cascade_fs_mkdir(const char* path, mode_t mode) {
+    dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     if(fcc()->get(path)) {
         return -EEXIST;
     }
@@ -290,11 +312,12 @@ static int cascade_fs_mkdir(const char* path, mode_t mode) {
         fcc()->local_latest_dirs.insert(path);
         // TODO err if nullptr
     }
-
+    dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return 0;
 }
 
 static int cascade_fs_unlink(const char* path) {
+    dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     // return -ENOTSUP;
     auto node = fcc()->get(path);
     if(node == nullptr) {
@@ -313,7 +336,7 @@ static int cascade_fs_unlink(const char* path) {
     // auto result = capi.remove(key);
     // node->parent->children.erase(node->label);
     // delete node;
-
+    dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return 0;
 }
 
@@ -342,6 +365,7 @@ static int cascade_fs_rmdir(const char* path) {
 
 static int cascade_fs_truncate(const char* path, off_t size,
                                struct fuse_file_info* fi) {
+    dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path);
     if(node == nullptr) {
         return -ENOENT;
@@ -353,7 +377,9 @@ static int cascade_fs_truncate(const char* path, off_t size,
     // TODO: data type change
     node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[size]);
     node->data.size = size;
-    return fcc()->put_to_capi(node);
+    int res = fcc()->put_to_capi(node);
+    dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
+    return res;
 }
 
 int set_buffer(char* dest, size_t size, const char* src, size_t len = 0) {
@@ -409,6 +435,7 @@ static int cascade_fs_setxattr(const char* path, const char* name, const char* v
 
 static int cascade_fs_getxattr(const char* path, const char* name, char* value,
                                size_t size) {
+    dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     // TODO need to first apt get-install attr
     if(strcmp(path, fcc()->ROOT.c_str()) == 0) {
         if(strcmp(name, "user.cascade.largest_known_version") == 0) {
@@ -416,10 +443,12 @@ static int cascade_fs_getxattr(const char* path, const char* name, char* value,
             return set_buffer(value, size, v.c_str());
         }
     }
+    dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return -ENODATA;
 }
 
 static int cascade_fs_listxattr(const char* path, char* list, size_t size) {
+    dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     // TODO lesson learned :(. returned 0 instead of length. check over all return types
     if(strcmp(path, fcc()->ROOT.c_str()) == 0) {
         // ^ 1hr+ bug
@@ -434,7 +463,9 @@ static int cascade_fs_listxattr(const char* path, char* list, size_t size) {
         return set_buffer(list, size, names, sizeof(names) / sizeof(names[0]) - 1);
     }
     const char empty[] = "";
-    return set_buffer(list, size, empty, 0);
+    int res = set_buffer(list, size, empty, 0);
+    dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
+    return res;
 }
 
 #endif

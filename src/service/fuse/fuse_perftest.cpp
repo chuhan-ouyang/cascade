@@ -1,3 +1,6 @@
+#include <cascade/service_types.hpp>
+#include <derecho/utils/logger.hpp>
+
 #include <fstream>
 #include <iostream>
 #include <chrono>
@@ -8,6 +11,11 @@
 #include <unistd.h>
 #include <cstdint>  
 #include <cstring> 
+
+using namespace derecho::cascade;
+
+#define READ_START_TIME 1000
+#define READ_END_TIME 1004
 
 void record_timestamp(std::vector<std::chrono::nanoseconds> timestamps, std::string& file_name, uint32_t file_size, uint32_t runs) {
     std::ofstream perf_file("perf/" + file_name, std::ios::binary);
@@ -24,6 +32,8 @@ void record_timestamp(std::vector<std::chrono::nanoseconds> timestamps, std::str
 }
 
 void read_test(uint32_t file_size, uint32_t runs, uint32_t warmup_runs, const std::filesystem::path& path, bool verify) {
+    // TODO (chuhan): what to do put for the my id on the perftest side
+    TimestampLogger::log(READ_START_TIME,0,0,get_walltime());
     std::filesystem::path read_path = path / "read_test";
     std::vector<std::chrono::nanoseconds> timestamps;
     for (int i = 0; i < runs; ++i) {
@@ -53,7 +63,10 @@ void read_test(uint32_t file_size, uint32_t runs, uint32_t warmup_runs, const st
         usleep(10000);
     }
     std::string file_name = "read_perf_" + std::to_string(file_size / 1024) + "_kb_" + std::to_string(runs) + "_runs.csv"; 
-    record_timestamp(timestamps, file_name, file_size, runs - warmup_runs);
+    std::string logger_res = "fuse_perftest_logger.csv";
+    // record_timestamp(timestamps, file_name, file_size, runs - warmup_runs);
+    TimestampLogger::log(READ_END_TIME,0,0,get_walltime());
+    TimestampLogger::flush(logger_res, false);
 }
 
 void write_test(uint32_t file_size, uint32_t runs, uint32_t warmup_runs, const std::filesystem::path& path, bool verify) {
