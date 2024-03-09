@@ -1,1 +1,0 @@
-/root/workspace/cascade/build-Release/src/service/fuse/test_write.py

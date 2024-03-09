@@ -18,15 +18,13 @@ void record_timestamp(std::vector<std::chrono::nanoseconds> timestamps, std::str
     }
     double average_time = total_time / runs;
     perf_file << "Average time to write " << file_name 
-              << " over " << runs << " runs: " << average_time << " ns"
-              << " \nFile size: " << file_size << " bytes\n";
+              << " over " << runs << " non-warmup runs: " << average_time << " ns"
+              << " \nFile size: " << file_size / 1024 << " KB\n";
     perf_file.close();
-
 }
 
 void read_test(uint32_t file_size, uint32_t runs, uint32_t warmup_runs, const std::filesystem::path& path, bool verify) {
     std::filesystem::path read_path = path / "read_test";
-    std::ofstream verify_file("perf/read_verify.txt", std::ios::binary);
     std::vector<std::chrono::nanoseconds> timestamps;
     for (int i = 0; i < runs; ++i) {
         std::ifstream file(read_path, std::ios::binary);
@@ -48,12 +46,13 @@ void read_test(uint32_t file_size, uint32_t runs, uint32_t warmup_runs, const st
             timestamps.push_back(duration);
         }
         if (verify && i == runs - 1) {
+            std::ofstream verify_file("perf/read_verify.txt", std::ios::binary);
             verify_file.write(reinterpret_cast<const char*>(buffer), file_size);
             verify_file.close();
         }
         usleep(10000);
     }
-    std::string file_name = "read_perf_" + std::to_string(file_size) + "_kb_" + std::to_string(runs) + "_runs"; 
+    std::string file_name = "read_perf_" + std::to_string(file_size / 1024) + "_kb_" + std::to_string(runs) + "_runs.csv"; 
     record_timestamp(timestamps, file_name, file_size, runs - warmup_runs);
 }
 
@@ -83,7 +82,7 @@ void write_test(uint32_t file_size, uint32_t runs, uint32_t warmup_runs, const s
         }
         usleep(10000);
     }
-    std::string file_name = "write_perf_" + std::to_string(file_size) + "_kb_" + std::to_string(runs) + "_runs"; 
+    std::string file_name = "write_perf_" + std::to_string(file_size / 1024) + "_kb_" + std::to_string(runs) + "_runs.csv"; 
     record_timestamp(timestamps, file_name, file_size, runs - warmup_runs);
 }
 
@@ -114,7 +113,7 @@ int main(int argc, char* argv[]) {
     uint32_t file_size = kb_size * 1024; 
     std::filesystem::path objp_path = "test/latest/pool1";
     std::cout << "Operation: " << operation << std::endl;
-    std::cout << "File size: " << kb_size << std::endl;
+    std::cout << "File size: " << kb_size << " KB" << std::endl;
     std::cout << "Number of runs: " << num_runs << std::endl;
     std::cout << "Warmup runs: " << warmup_runs << std::endl;
 
