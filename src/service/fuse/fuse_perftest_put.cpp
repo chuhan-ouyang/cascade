@@ -20,7 +20,7 @@ using namespace derecho::cascade;
 
 
 /**
- * Put to the key /pool1/read_test for a variable size bytes object filled with "1"
+ * Put to the key /pool/read_test for a variable size bytes object filled with "1"
  * Usage: ./fuse_perftest_put -s <kb_size> -r <runs>
 */
 int main (int argc, char* argv[]) {
@@ -40,7 +40,7 @@ int main (int argc, char* argv[]) {
     size_t byte_size = kb_size * 1024;
 
     auto& capi = ServiceClientAPI::get_service_client();
-    capi.create_object_pool<PersistentCascadeStoreWithStringKey>("/pool1", 0, sharding_policy_type::HASH, {}, "");
+    capi.create_object_pool<PersistentCascadeStoreWithStringKey>("/pool", 0, sharding_policy_type::HASH, {}, "");
     std::vector<uint8_t*> buffers;
     for (uint32_t i = 0; i < num_runs; i++) {
         // TODO (chuhan) : ask about whether to allocate new memory for each capi.put
@@ -49,9 +49,10 @@ int main (int argc, char* argv[]) {
             buffer[i] = '1';
         }
         ObjectWithStringKey obj;
-        obj.key = "/pool1/read_test" + std::to_string(i);
+        obj.key = "/pool/read_test" + std::to_string(i);
         obj.blob = Blob(buffer, byte_size);
         auto res = capi.put(obj);
+        check_put_and_remove_result(res);
         buffers.push_back(buffer);
     }
     // for (auto& buffer : buffers) {

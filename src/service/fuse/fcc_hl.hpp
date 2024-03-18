@@ -424,7 +424,8 @@ struct FuseClientContext {
             return 0;  
         }
         std::string numStr = input.substr(numPos);
-        return std::stoi(numStr);;
+        int res = std::stoi(numStr);
+        return res;
     }
 
     void update_contents(Node* node, const std::string& path, persistent::version_t ver) {

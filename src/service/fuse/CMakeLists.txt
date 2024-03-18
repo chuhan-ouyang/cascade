@@ -77,6 +77,9 @@ if (${HAS_FUSE})
         COMMAND ln -sf ${CMAKE_CURRENT_SOURCE_DIR}/test_write.py
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/test_write.py
         
+        COMMAND ln -sf ${CMAKE_CURRENT_SOURCE_DIR}/perf_plot.py
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/perf_plot.py
+        
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_perftest_put
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_perftest_put
 

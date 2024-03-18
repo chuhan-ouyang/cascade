@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
         }
     }
     uint32_t file_size = kb_size * 1024; 
-    std::filesystem::path objp_path = "test/latest/pool1";
+    std::filesystem::path objp_path = "test/latest/pool";
     std::cout << "Operation: " << operation << std::endl;
     std::cout << "File size: " << kb_size << " KB" << std::endl;
     std::cout << "Number of runs: " << num_runs << std::endl;
