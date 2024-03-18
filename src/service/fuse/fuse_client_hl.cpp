@@ -181,11 +181,7 @@ static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offse
     } else {
         size = 0;
     }
-    node->data.file_valid = true;
-    TimestampLogger::log(AFTER_CASCADE_READ,fcc()->node_id,fcc()->extract_number(path),get_walltime());
-    std::filesystem::path curr_path = std::filesystem::current_path();
-    std::filesystem::path logger_path = curr_path / "fuse_client_logger.csv";
-    TimestampLogger::flush("/root/workspace/cascade/build-Release/src/service/fuse/fuse_cfg/n4/fuse_client_logger.csv", false);
+    node->data.file_valid = false;
     return size;
 }
 
@@ -241,11 +237,9 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
 	*bufp = src;
     fcc()->fileptrs_in_use.emplace_back(bytes);
     *free_ptr = &cascade_fs_free_buf;
-    node->data.file_valid = true;
     TimestampLogger::log(AFTER_CASCADE_READ,fcc()->node_id,fcc()->extract_number(path),get_walltime());
-    std::filesystem::path curr_path = std::filesystem::current_path();
-    std::filesystem::path logger_path = curr_path / "fuse_client_logger.csv";
-    TimestampLogger::flush("/root/workspace/cascade/build-Release/src/service/fuse/fuse_cfg/n4/fuse_client_logger.csv", false);
+    std::string logger_path = "/root/workspace/cascade/build-Release/src/service/fuse/fuse_cfg/n4/fuse_client_logger.csv";
+    TimestampLogger::flush(logger_path, false);
     dbg_default_error("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
     return size;
 }
@@ -281,6 +275,7 @@ static int cascade_fs_flush(const char* path, struct fuse_file_info* fi) {
 static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
     dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path);
+    node->data.file_valid = false;
     if((fi->flags & O_ACCMODE) == O_RDONLY) {
         dbg_default_debug("O_RDONLY");
         return 0;

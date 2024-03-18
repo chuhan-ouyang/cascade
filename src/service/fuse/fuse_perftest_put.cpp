@@ -18,24 +18,44 @@ using namespace derecho::cascade;
                   << ",ts_us:" << std::get<1>(reply) << std::endl;\
     }
 
+
 /**
  * Put to the key /pool1/read_test for a variable size bytes object filled with "1"
+ * Usage: ./fuse_perftest_put -s <kb_size> -r <runs>
 */
 int main (int argc, char* argv[]) {
-    int kb_size = atoi(argv[1]);
-    size_t byte_size = kb_size * 1024;
-    auto& capi = ServiceClientAPI::get_service_client();
-    uint8_t* buffer = (uint8_t*) malloc(byte_size);
-    for (size_t i = 0; i < byte_size; i++) {
-        buffer[i] = '1';
+    if (argc < 5) {
+        std::cerr << "Usage: " << argv[0] << " <-s> <file size in KB> <-n> <num runs>\n";
+        return 1;
     }
+    uint32_t kb_size = 0, num_runs = 0;
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];
+        if (arg == "-s" && i + 1 < argc) {
+            kb_size = std::atoi(argv[++i]);
+        } else if (arg == "-n" && i + 1 < argc) {
+            num_runs = std::atoi(argv[++i]);
+        }
+    }
+    size_t byte_size = kb_size * 1024;
+
+    auto& capi = ServiceClientAPI::get_service_client();
     capi.create_object_pool<PersistentCascadeStoreWithStringKey>("/pool1", 0, sharding_policy_type::HASH, {}, "");
-    ObjectWithStringKey obj;
-    obj.key = "/pool1/read_test";
-    // TODO (chuhan): is byte_size he correct argument to pass into blob
-    obj.blob = Blob(buffer, byte_size);
-    auto res = capi.put(obj);
-    check_put_and_remove_result(res);
-    free(buffer);
+    std::vector<uint8_t*> buffers;
+    for (uint32_t i = 0; i < num_runs; i++) {
+        // TODO (chuhan) : ask about whether to allocate new memory for each capi.put
+        uint8_t* buffer = (uint8_t*) malloc(byte_size);
+        for (size_t i = 0; i < byte_size; i++) {
+            buffer[i] = '1';
+        }
+        ObjectWithStringKey obj;
+        obj.key = "/pool1/read_test" + std::to_string(i);
+        obj.blob = Blob(buffer, byte_size);
+        auto res = capi.put(obj);
+        buffers.push_back(buffer);
+    }
+    // for (auto& buffer : buffers) {
+    //     free(buffer);
+    // }
     return 0;
 }

@@ -424,8 +424,7 @@ struct FuseClientContext {
             return 0;  
         }
         std::string numStr = input.substr(numPos);
-        int number = std::stoi(numStr);
-        return number;
+        return std::stoi(numStr);;
     }
 
     void update_contents(Node* node, const std::string& path, persistent::version_t ver) {
@@ -514,6 +513,24 @@ struct FuseClientContext {
         // std::cout << "\nExited fcc_hl:get: " << path << std::endl;
         return node;
     }
+
+    /**
+     * Can use for future when cascade interface offers get attribute 
+    */
+    // Node* get_attr(const std::string& path) {
+    //     // std::cout << "\nEntered fcc_hl:get: " << path << std::endl;
+    //     Node* node = root->get(path);
+    //     if (node == nullptr) {
+    //         dbg_default_trace("In {}, cc_hl:Node is nullptr, path: {}", __PRETTY_FUNCTION__, path);
+    //         return node;
+    //     }
+    //     if (node->data.flag == KEY_FILE) {
+    //         dbg_default_trace("In {}, call get_file with path: {}", __PRETTY_FUNCTION__, path);
+    //         node->data.size = 2;
+    //     }
+    //     // std::cout << "\nExited fcc_hl:get: " << path << std::endl;
+    //     return node;
+    // }
 
 
     // TODO: add documentation for this function

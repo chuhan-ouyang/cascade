@@ -26,35 +26,29 @@ void record_timestamp(std::vector<std::chrono::nanoseconds> timestamps, std::str
     }
     double average_time = total_time / runs;
     perf_file << "Average time to write " << file_name 
-              << " over " << runs << " non-warmup runs: " << average_time << " ns"
+              << " over " << runs << " runs: " << average_time << " ns"
               << " \nFile size: " << file_size / 1024 << " KB\n";
     perf_file.close();
 }
 
-void read_test(uint32_t file_size, uint32_t runs, uint32_t warmup_runs, const std::filesystem::path& path, bool verify) {
-    // TODO (chuhan): what to do put for the my id on the perftest side
-    TimestampLogger::log(READ_START_TIME,0,0,get_walltime());
-    std::filesystem::path read_path = path / "read_test";
-    std::vector<std::chrono::nanoseconds> timestamps;
+void read_test(uint32_t file_size, uint32_t runs, const std::filesystem::path& path, bool verify) {
     for (int i = 0; i < runs; ++i) {
+        std::string file_name = "read_test" + std::to_string(i);
+        std::filesystem::path read_path = path / file_name;
         std::ifstream file(read_path, std::ios::binary);
         if (!file) {
             std::cerr << "File could not be opened for reading at " << read_path << ".\n";
             return;
         }
         char *buffer = static_cast<char*>(malloc(file_size + 1));
-        auto start = std::chrono::high_resolution_clock::now();
+        TimestampLogger::log(READ_START_TIME,4,i,get_walltime());
         if (!file.read(buffer, file_size)) {
             std::cerr << "Error reading file on run " << i + 1 << ".\n";
             file.close();
             return;
         }
-        auto end = std::chrono::high_resolution_clock::now();
         file.close();
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-        if (i >= warmup_runs) {
-            timestamps.push_back(duration);
-        }
+        TimestampLogger::log(READ_END_TIME,4,i,get_walltime());
         if (verify && i == runs - 1) {
             std::ofstream verify_file("perf/read_verify.txt", std::ios::binary);
             verify_file.write(reinterpret_cast<const char*>(buffer), file_size);
@@ -62,14 +56,12 @@ void read_test(uint32_t file_size, uint32_t runs, uint32_t warmup_runs, const st
         }
         usleep(10000);
     }
-    std::string file_name = "read_perf_" + std::to_string(file_size / 1024) + "_kb_" + std::to_string(runs) + "_runs.csv"; 
-    std::string logger_res = "fuse_perftest_logger.csv";
-    // record_timestamp(timestamps, file_name, file_size, runs - warmup_runs);
-    TimestampLogger::log(READ_END_TIME,0,0,get_walltime());
-    TimestampLogger::flush(logger_res, false);
+    std::string logger_path = "fuse_perftest_logger.csv"; 
+    TimestampLogger::flush(logger_path, false);
 }
 
-void write_test(uint32_t file_size, uint32_t runs, uint32_t warmup_runs, const std::filesystem::path& path, bool verify) {
+// TODO (chuhan) : add logger for write tests
+void write_test(uint32_t file_size, uint32_t runs, const std::filesystem::path& path, bool verify) {
     std::filesystem::path write_path = path / "write_test";
     char *buffer = static_cast<char*>(malloc(file_size + 1));
     for (size_t i = 0; i < file_size; i++) {
@@ -81,27 +73,23 @@ void write_test(uint32_t file_size, uint32_t runs, uint32_t warmup_runs, const s
         if (!file) {
             std::cerr << "File could not be opened at " << write_path << ".\n";
         }
-        auto start = std::chrono::high_resolution_clock::now();
+        TimestampLogger::log(READ_START_TIME,4,i,get_walltime());
         if (!file.write(buffer, file_size)) {
             std::cerr << "Error writing file on run " << i + 1 << ".\n";
             file.close();
             return;
         }
-        auto end = std::chrono::high_resolution_clock::now();
         file.close();
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-        if (i >= warmup_runs) {
-            timestamps.push_back(duration);
-        }
+        TimestampLogger::log(READ_END_TIME,4,i,get_walltime());
         usleep(10000);
     }
-    std::string file_name = "write_perf_" + std::to_string(file_size / 1024) + "_kb_" + std::to_string(runs) + "_runs.csv"; 
-    record_timestamp(timestamps, file_name, file_size, runs - warmup_runs);
+    std::string file_name = "write_perf_" + std::to_string(file_size / 1024) + "_kb_" + std::to_string(runs) + "_runs_perftest.csv"; 
+    TimestampLogger::flush(file_name, false);
 }
 
 int main(int argc, char* argv[]) {
     if (argc < 5) {
-        std::cerr << "Usage: " << argv[0] << " <read/write> <-s> <file size in KB> <-n> <num runs> <-w> <warm up runs> <-v> (optional)\n";
+        std::cerr << "Usage: " << argv[0] << " <read/write> <-s> <file size in KB> <-n> <num runs> <-v> (optional)\n";
         return 1;
     }
     std::string operation = argv[1];  
@@ -109,7 +97,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Invalid operation. Please use 'read' or 'write'.\n";
         return 1; 
     }
-    uint32_t kb_size, num_runs, warmup_runs;
+    uint32_t kb_size, num_runs;
     bool verify = false;
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
@@ -117,8 +105,6 @@ int main(int argc, char* argv[]) {
             kb_size = std::atoi(argv[++i]);
         } else if (arg == "-n" && i + 1 < argc) {
             num_runs = std::atoi(argv[++i]);
-        } else if (arg == "-w" && i + 1 < argc) {
-            warmup_runs = std::atoi(argv[++i]);
         } else if (arg == "-v") {
             verify = true;
         }
@@ -128,13 +114,12 @@ int main(int argc, char* argv[]) {
     std::cout << "Operation: " << operation << std::endl;
     std::cout << "File size: " << kb_size << " KB" << std::endl;
     std::cout << "Number of runs: " << num_runs << std::endl;
-    std::cout << "Warmup runs: " << warmup_runs << std::endl;
 
     std::filesystem::create_directories("perf");
     if (operation == "read") {
-        read_test(file_size, num_runs, warmup_runs, objp_path, verify);
+        read_test(file_size, num_runs, objp_path, verify);
     } else if (operation == "write") {
-        write_test(file_size, num_runs, warmup_runs, objp_path, verify);
+        write_test(file_size, num_runs, objp_path, verify);
     }
     return 0;
 }
