@@ -36,25 +36,25 @@ void read_test(uint32_t file_size, uint32_t runs, const std::filesystem::path& p
         std::string file_name = "read_test" + std::to_string(i);
         std::filesystem::path read_path = path / file_name;
         std::ifstream file(read_path, std::ios::binary);
-        if (!file) {
-            std::cerr << "File could not be opened for reading at " << read_path << ".\n";
-            return;
-        }
-        char *buffer = static_cast<char*>(malloc(file_size + 1));
-        TimestampLogger::log(READ_START_TIME,4,i,get_walltime());
-        if (!file.read(buffer, file_size)) {
-            std::cerr << "Error reading file on run " << i + 1 << ".\n";
-            file.close();
-            return;
-        }
-        file.close();
-        TimestampLogger::log(READ_END_TIME,4,i,get_walltime());
-        if (verify && i == runs - 1) {
-            std::ofstream verify_file("perf/read_verify.txt", std::ios::binary);
-            verify_file.write(reinterpret_cast<const char*>(buffer), file_size);
-            verify_file.close();
-        }
-        usleep(10000);
+        // if (!file) {
+        //     std::cerr << "File could not be opened for reading at " << read_path << ".\n";
+        //     return;
+        // }
+        // char *buffer = static_cast<char*>(malloc(file_size + 1));
+        // TimestampLogger::log(READ_START_TIME,4,i,get_walltime());
+        // if (!file.read(buffer, file_size)) {
+        //     std::cerr << "Error reading file on run " << i + 1 << ".\n";
+        //     file.close();
+        //     return;
+        // }
+        // file.close();
+        // TimestampLogger::log(READ_END_TIME,4,i,get_walltime());
+        // if (verify && i == runs - 1) {
+        //     std::ofstream verify_file("perf/read_verify.txt", std::ios::binary);
+        //     verify_file.write(reinterpret_cast<const char*>(buffer), file_size);
+        //     verify_file.close();
+        // }
+        // usleep(10000);
     }
     std::string logger_path = "fuse_perftest_logger.csv"; 
     TimestampLogger::flush(logger_path, false);

@@ -75,12 +75,12 @@ static int cascade_fs_getattr(const char* path, struct stat* stbuf,
                               struct fuse_file_info* fi) {
     dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path);
-    node->data.file_valid = true;
     if(node == nullptr) {
         return -ENOENT;
     }
     memset(stbuf, 0, sizeof(struct stat));
     int res = fcc()->get_stat(node, stbuf);
+    node->data.file_valid = true;
     dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return res;
 }
@@ -549,10 +549,10 @@ int main(int argc, char* argv[]) {
             fprintf(stderr, "error: no mountpoint specified\n");
             res = 1;
             throw 1;
-        } else if(!opts.singlethread) {
-            fprintf(stderr, "error: multi-threaded client not supported\n");
-            res = 1;
-            throw 1;
+        // } else if(!opts.singlethread) {
+        //     fprintf(stderr, "error: multi-threaded client not supported\n");
+        //     res = 1;
+        //     throw 1;
         } else if(!prepare_derecho_conf_file(options.client_dir)) {
             fprintf(stderr, "error: invalid client directory\n"
                             "(dir needs derecho.cfg if DERECHO_CONF_FILE envvar is not set)\n");
