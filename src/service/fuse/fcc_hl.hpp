@@ -19,6 +19,16 @@ namespace fs = std::filesystem;
 
 std::shared_ptr<spdlog::logger> DL;
 
+int extract_number(const std::string& input) {
+    size_t numPos = input.find_first_of("0123456789");
+    if (numPos == std::string::npos) {
+        return 0;  
+    }
+    std::string numStr = input.substr(numPos);
+    int res = std::stoi(numStr);
+    return res;
+}
+
 enum NodeFlag;
 
 /*
@@ -84,6 +94,9 @@ struct FuseClientContext {
 
     time_t update_interval;
     time_t last_update_sec;
+
+    // TODO (chuhan) : Multithread lock
+
 
     FuseClientContext(int update_int, bool ver_snap) : capi(ServiceClientAPI::get_service_client()) {
         DL = LoggerFactory::createLogger("fuse_client", spdlog::level::from_str(derecho::getConfString(CONF_LOGGER_DEFAULT_LOG_LEVEL)));
@@ -416,16 +429,6 @@ struct FuseClientContext {
         std::stringstream ss;
         root->print(100, ss);
         return ss.str();
-    }
-
-    int extract_number(const std::string& input) {
-        size_t numPos = input.find_first_of("0123456789");
-        if (numPos == std::string::npos) {
-            return 0;  
-        }
-        std::string numStr = input.substr(numPos);
-        int res = std::stoi(numStr);
-        return res;
     }
 
     void update_contents(Node* node, const std::string& path, persistent::version_t ver) {

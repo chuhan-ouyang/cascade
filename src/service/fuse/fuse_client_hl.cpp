@@ -203,6 +203,7 @@ static void cascade_fs_free_buf(void* buf) {
 
 static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
 			   size_t size, off_t offset, struct fuse_file_info *fi, void (**free_ptr)(void*)) {
+    // TODO (chuhan) acquire read lock
     dbg_default_error("Entered {}, with path: {}", __PRETTY_FUNCTION__, path);
     struct fuse_bufvec *src;
     src = (fuse_bufvec*)malloc(sizeof(struct fuse_bufvec));
@@ -237,15 +238,19 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
 	*bufp = src;
     fcc()->fileptrs_in_use.emplace_back(bytes);
     *free_ptr = &cascade_fs_free_buf;
-    TimestampLogger::log(AFTER_CASCADE_READ,fcc()->node_id,fcc()->extract_number(path),get_walltime());
-    std::string logger_path = "/root/workspace/cascade/build-Release/src/service/fuse/fuse_cfg/n4/fuse_client_logger.csv";
-    TimestampLogger::flush(logger_path, false);
+    int msg_id = extract_number(path);
+    TimestampLogger::log(AFTER_CASCADE_READ,fcc()->node_id,msg_id,get_walltime());
+    if (msg_id % 10 == 0) {
+        std::string logger_path = "/root/workspace/cascade/build-Release/src/service/fuse/fuse_cfg/n4/fuse_client_logger.csv";
+        TimestampLogger::flush(logger_path, false);
+    }
     dbg_default_error("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
     return size;
 }
 
 static int cascade_fs_write(const char* path, const char* buf, size_t size,
                             off_t offset, struct fuse_file_info* fi) {
+    // TODO (chuhan) : acquire write lock
     dbg_default_error("Entered {}, with path: {}", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path);
     if(node == nullptr) {
@@ -290,6 +295,7 @@ static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
     }
     int res = fcc()->put_to_capi(node);
     dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
+    // TODO (chuhan) : unlock lock
     return res;
 }
 

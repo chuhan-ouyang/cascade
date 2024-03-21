@@ -42,7 +42,7 @@ int main (int argc, char* argv[]) {
     auto& capi = ServiceClientAPI::get_service_client();
     capi.create_object_pool<PersistentCascadeStoreWithStringKey>("/pool", 0, sharding_policy_type::HASH, {}, "");
     std::vector<uint8_t*> buffers;
-    for (uint32_t i = 0; i < num_runs; i++) {
+    for (uint32_t i = 1; i <= num_runs; i++) {
         // TODO (chuhan) : ask about whether to allocate new memory for each capi.put
         uint8_t* buffer = (uint8_t*) malloc(byte_size);
         for (size_t i = 0; i < byte_size; i++) {
