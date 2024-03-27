@@ -11,6 +11,9 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <mutex>
+#include <thread>
+
 #include "fcc_hl.hpp"
 #include <fuse3/fuse_lowlevel.h>
 #ifdef HAVE_SETXATTR
@@ -203,7 +206,8 @@ static void cascade_fs_free_buf(void* buf) {
 
 static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
 			   size_t size, off_t offset, struct fuse_file_info *fi, void (**free_ptr)(void*)) {
-    // TODO (chuhan) acquire read lock
+    // TODO (chuhan) : acquire read lock
+    fcc()->mutex.lock_shared();
     dbg_default_error("Entered {}, with path: {}", __PRETTY_FUNCTION__, path);
     struct fuse_bufvec *src;
     src = (fuse_bufvec*)malloc(sizeof(struct fuse_bufvec));
@@ -245,12 +249,15 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
         TimestampLogger::flush(logger_path, false);
     }
     dbg_default_error("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
+    fcc()->mutex.lock_shared();
     return size;
 }
 
 static int cascade_fs_write(const char* path, const char* buf, size_t size,
                             off_t offset, struct fuse_file_info* fi) {
     // TODO (chuhan) : acquire write lock
+    fcc()->mutex.lock();
+    std::unique_lock<std::shared_mutex> lock(fcc()->mutex);
     dbg_default_error("Entered {}, with path: {}", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path);
     if(node == nullptr) {
@@ -266,6 +273,7 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     node->data.size = new_size;
     memcpy(node->data.bytes.get() + offset, buf, size);
     dbg_default_error("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
+    fcc()->mutex.unlock();
     return size;
 }
 
@@ -296,6 +304,7 @@ static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
     int res = fcc()->put_to_capi(node);
     dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     // TODO (chuhan) : unlock lock
+    // fcc()->mutex.unlock();
     return res;
 }
 

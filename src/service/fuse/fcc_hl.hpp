@@ -8,6 +8,7 @@
 #include <memory>
 #include <mutils-containers/KindMap.hpp>
 #include <nlohmann/json.hpp>
+#include <shared_mutex>
 
 #include "path_tree.hpp"
 
@@ -95,8 +96,7 @@ struct FuseClientContext {
     time_t update_interval;
     time_t last_update_sec;
 
-    // TODO (chuhan) : Multithread lock
-
+    std::shared_mutex mutex;
 
     FuseClientContext(int update_int, bool ver_snap) : capi(ServiceClientAPI::get_service_client()) {
         DL = LoggerFactory::createLogger("fuse_client", spdlog::level::from_str(derecho::getConfString(CONF_LOGGER_DEFAULT_LOG_LEVEL)));
