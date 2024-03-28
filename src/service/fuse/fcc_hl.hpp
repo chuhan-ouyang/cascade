@@ -52,6 +52,7 @@ struct NodeData {
 
     bool file_valid = false;
 
+
     // not empty if this node contains a full object pool path (then use list keys)
     std::string objp_name;
 
@@ -535,6 +536,7 @@ struct FuseClientContext {
     //     // std::cout << "\nExited fcc_hl:get: " << path << std::endl;
     //     return node;
     // }
+
 
     // TODO: add documentation for this function
     void update_dir(Node* node, const fs::path& prefix) {

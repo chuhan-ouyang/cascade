@@ -25,7 +25,6 @@ using namespace derecho::cascade;
 #define AFTER_CASCADE_READ 1003
 
 // stat on invalid path
- 
 struct cli_options {
     const char* client_dir;
     int update_interval;
@@ -184,7 +183,7 @@ static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offse
         memcpy(buf, p + offset, size);
     } else {
         size = 0;
-    } 
+    }
     node->data.file_valid = false;
     return size;
 }
@@ -223,8 +222,9 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
     if(node->data.flag & DIR_FLAG) {
         return -EACCES;
     }
+    node->reader_count++;
     src->buf[0].flags = FUSE_BUF_FD_SEEK;
-	  src->buf[0].pos = offset;
+	src->buf[0].pos = offset;
 
     auto& bytes = node->data.bytes;
     size_t len = node->data.size;
@@ -250,7 +250,6 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
         TimestampLogger::flush(logger_path, false);
     }
     dbg_default_error("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
-    fcc()->mutex.lock_shared();
     return size;
 }
 
@@ -267,6 +266,7 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     if(node->data.flag & DIR_FLAG || !node->data.writeable) {  
         return -ENOTSUP;
     }
+    node->writer_count++;
     size_t new_size = std::max(node->data.size, offset + size);
     std::shared_ptr<uint8_t[]> new_bytes(new uint8_t[new_size]);
     memcpy(new_bytes.get(), node->data.bytes.get(), std::min(static_cast<size_t>(offset), node->data.size));
@@ -274,7 +274,6 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     node->data.size = new_size;
     memcpy(node->data.bytes.get() + offset, buf, size);
     dbg_default_error("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
-    fcc()->mutex.unlock();
     return size;
 }
 
@@ -305,7 +304,15 @@ static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
     int res = fcc()->put_to_capi(node);
     dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     // TODO (chuhan) : unlock lock
-    // fcc()->mutex.unlock();
+    if (node->reader_count.load() > 0) {
+        fcc()->mutex.unlock_shared();
+        node->reader_count--;
+    } else if (node->writer_count.load() > 0) {
+        fcc()->mutex.unlock();
+        node->writer_count--;
+    } else {
+        dbg_default_error("In {}, neither reader or writer count > 0", __PRETTY_FUNCTION__);
+    }
     return res;
 }
 
