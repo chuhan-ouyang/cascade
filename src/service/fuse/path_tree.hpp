@@ -24,6 +24,8 @@ enum NodeFlag : uint32_t {
 
 template <typename T>
 struct PathTree {
+    // last path of the full path name
+    // Ex. If the full path name is /pool1/k1, its label is k1
     std::string label;
     T data;
 
