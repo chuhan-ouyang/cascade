@@ -11,6 +11,8 @@ if (${HAS_FUSE})
     add_executable(fuse_client_hl fuse_client_hl.cpp)
     add_executable(fuse_perftest_put perf_test/fuse_perftest_put.cpp)
     add_executable(fuse_perftest perf_test/fuse_perftest.cpp)
+    add_library(link_malloc_obj OBJECT link_malloc.c)
+    target_compile_definitions(link_malloc_obj PRIVATE LINKTIME)
 
     target_include_directories(fuse_client_hl PRIVATE
         $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
@@ -33,11 +35,16 @@ if (${HAS_FUSE})
         $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}>
     )
 
+    # target_link_libraries(fuse_client_hl $<TARGET_OBJECTS:link_malloc_obj> cascade readline fuse3)
     target_link_libraries(fuse_client_hl cascade readline fuse3)
     target_link_libraries(fuse_perftest_put cascade readline fuse3)
     target_link_libraries(fuse_perftest cascade readline fuse3)
 
     set_target_properties(fuse_client_hl PROPERTIES OUTPUT_NAME cascade_fuse_client_hl)
+    
+    # Link Interposition
+    # target_link_options(fuse_client_hl PRIVATE "-Wl,--wrap,malloc")
+    # target_link_options(fuse_client_hl PRIVATE "-Wl,--wrap,free")
 
     # copy testfuse.py and util.py to n4
     add_custom_command(TARGET fuse_client_hl POST_BUILD
