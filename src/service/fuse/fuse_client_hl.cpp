@@ -25,6 +25,7 @@ using namespace derecho::cascade;
 #define AFTER_CASCADE_READ 1003
 
 // stat on invalid path
+ 
 struct cli_options {
     const char* client_dir;
     int update_interval;
@@ -183,7 +184,7 @@ static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offse
         memcpy(buf, p + offset, size);
     } else {
         size = 0;
-    }
+    } 
     node->data.file_valid = false;
     return size;
 }
@@ -223,7 +224,7 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
         return -EACCES;
     }
     src->buf[0].flags = FUSE_BUF_FD_SEEK;
-	src->buf[0].pos = offset;
+	  src->buf[0].pos = offset;
 
     auto& bytes = node->data.bytes;
     size_t len = node->data.size;

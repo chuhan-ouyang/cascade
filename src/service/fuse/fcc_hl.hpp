@@ -536,7 +536,6 @@ struct FuseClientContext {
     //     return node;
     // }
 
-
     // TODO: add documentation for this function
     void update_dir(Node* node, const fs::path& prefix) {
         dbg_default_trace("Entered {}", __PRETTY_FUNCTION__);
