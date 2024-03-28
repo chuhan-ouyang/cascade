@@ -68,32 +68,9 @@ if (${HAS_FUSE})
 
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/correct_test
         ${CMAKE_CURRENT_BINARY_DIR}/correct_test
-        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/correct_test/fuse_put.py
-        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_put.py
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/correct_test
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/
 
-        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/correct_test/testfuse_hl.py
-        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/testfuse_hl.py
-
-        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/correct_test/util.py
-        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/util.py
-
-        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/util.py
-        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n5/util.py
-
-        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/mount.py
-        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/mount.py
-
-        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/read.py
-        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/read.py
-
-        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/opdir.py
-        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/opdir.py
-
-        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/write.py
-        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/write.py
-
-        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/snapshot.py
-        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n5/snapshot.py
 
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/fuse_run.sh
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_run.sh
