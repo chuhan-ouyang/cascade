@@ -99,8 +99,8 @@ struct FuseClientContext {
     std::shared_mutex mutex;
 
     FuseClientContext(int update_int, bool ver_snap) : capi(ServiceClientAPI::get_service_client()) {
-        DL = LoggerFactory::createLogger("fuse_client", spdlog::level::from_str(derecho::getConfString(CONF_LOGGER_DEFAULT_LOG_LEVEL)));
-        DL->set_pattern("[%T][%n][%^%l%$] %v");
+        // DL = LoggerFactory::createLogger("fuse_client", spdlog::level::from_str(derecho::getConfString(CONF_LOGGER_DEFAULT_LOG_LEVEL)));
+        // DL->set_pattern("[%T][%n][%^%l%$] %v");
 
         node_id = capi.get_my_id();
         max_ver = 0;
