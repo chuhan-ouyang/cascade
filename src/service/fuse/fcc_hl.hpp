@@ -8,12 +8,27 @@
 #include <memory>
 #include <mutils-containers/KindMap.hpp>
 #include <nlohmann/json.hpp>
+#include <shared_mutex>
 
 #include "path_tree.hpp"
 
 namespace fs = std::filesystem;
 
+#define BEFORE_CAPI_GET 1001
+#define AFTER_CAPI_GET 1002
+
+
 std::shared_ptr<spdlog::logger> DL;
+
+int extract_number(const std::string& input) {
+    size_t numPos = input.find_first_of("0123456789");
+    if (numPos == std::string::npos) {
+        return 0;  
+    }
+    std::string numStr = input.substr(numPos);
+    int res = std::stoi(numStr);
+    return res;
+}
 
 enum NodeFlag;
 
@@ -66,6 +81,7 @@ struct FuseClientContext {
     const fs::path LATEST_PATH = "/latest";
     const fs::path ROOT = "/";
     ServiceClientAPI& capi;
+    node_id_t node_id;
 
     bool version_snapshot;
     persistent::version_t max_ver;
@@ -80,10 +96,13 @@ struct FuseClientContext {
     time_t update_interval;
     time_t last_update_sec;
 
+    std::shared_mutex mutex;
+
     FuseClientContext(int update_int, bool ver_snap) : capi(ServiceClientAPI::get_service_client()) {
         // DL = LoggerFactory::createLogger("fuse_client", spdlog::level::from_str(derecho::getConfString(CONF_LOGGER_DEFAULT_LOG_LEVEL)));
         // DL->set_pattern("[%T][%n][%^%l%$] %v");
 
+        node_id = capi.get_my_id();
         max_ver = 0;
         max_timestamp = 0;
 
@@ -157,7 +176,7 @@ struct FuseClientContext {
         Node* node_ptr = root->set(path, NodeData(KEY_DIR, op_path), NodeData(KEY_FILE, op_path));
         // TODO op: check that op_path is correct
         if (node_ptr->data.objp_name.empty()) {
-            dbg_default_error("In {}, path: {}, op_path is empty: {}, node's objp_name is empty", __PRETTY_FUNCTION__, path, op_path.empty());
+            dbg_default_trace("In {}, path: {}, op_path is empty: {}, node's objp_name is empty", __PRETTY_FUNCTION__, path, op_path.empty());
         }
         node_ptr->data.writeable = true;
         return node_ptr;
@@ -413,7 +432,11 @@ struct FuseClientContext {
     }
 
     void update_contents(Node* node, const std::string& path, persistent::version_t ver) {
+        int record_id = extract_number(path);
+        dbg_default_error("In {}, path: {}", __PRETTY_FUNCTION__, path);
+        TimestampLogger::log(BEFORE_CAPI_GET,node_id,record_id,get_walltime());
         auto result = capi.get(path, ver, true);
+        TimestampLogger::log(AFTER_CAPI_GET,node_id,record_id,get_walltime());
         for(auto& reply_future : result.get()) {
             auto reply = reply_future.second.get();
             if(ver == CURRENT_VERSION) {
@@ -469,14 +492,12 @@ struct FuseClientContext {
      Node* get_file(const std::string& path) {
         Node* node = root->get(path);
         if (!node->data.file_valid) {
-            dbg_default_trace("In {}, getting file contents: {}", __PRETTY_FUNCTION__, path);
+            dbg_default_error("In {}, !node->data.file_valid", __PRETTY_FUNCTION__);
+            dbg_default_error("In {}, getting file contents: {}", __PRETTY_FUNCTION__, path);
             // TODO op: path: should not include "/latest", see /pool1/k1, or /version
             auto new_path = path.substr(7);
             update_contents(node, new_path, CURRENT_VERSION);
         }
-        dbg_default_trace("In {}, file contents, label: {}", __PRETTY_FUNCTION__, node->label);
-        dbg_default_trace("In {}, file valid: {}", __PRETTY_FUNCTION__, node->data.file_valid);
-        dbg_default_trace("In {}, node->data.bytes: {}", __PRETTY_FUNCTION__, node->data.bytes);
         return node;
     }
 
@@ -490,12 +511,30 @@ struct FuseClientContext {
             return node;
         }
         if (node->data.flag == KEY_FILE) {
+            dbg_default_trace("In {}, call get_file with path: {}", __PRETTY_FUNCTION__, path);
             get_file(path);
         }
         // std::cout << "\nExited fcc_hl:get: " << path << std::endl;
         return node;
     }
 
+    /**
+     * Can use for future when cascade interface offers get attribute 
+    */
+    // Node* get_attr(const std::string& path) {
+    //     // std::cout << "\nEntered fcc_hl:get: " << path << std::endl;
+    //     Node* node = root->get(path);
+    //     if (node == nullptr) {
+    //         dbg_default_trace("In {}, cc_hl:Node is nullptr, path: {}", __PRETTY_FUNCTION__, path);
+    //         return node;
+    //     }
+    //     if (node->data.flag == KEY_FILE) {
+    //         dbg_default_trace("In {}, call get_file with path: {}", __PRETTY_FUNCTION__, path);
+    //         node->data.size = 2;
+    //     }
+    //     // std::cout << "\nExited fcc_hl:get: " << path << std::endl;
+    //     return node;
+    // }
 
     // TODO: add documentation for this function
     void update_dir(Node* node, const fs::path& prefix) {
