@@ -89,7 +89,9 @@ def initial_setup():
     repetitions = (1024 // len(word_to_repeat)) + 1
     one_kb_string = word_to_repeat * repetitions
     encoded_bytes = one_kb_string.encode('utf-8')
-    capi.put("/pool1/1kb", encoded_bytes)
+    res = capi.put("/pool1/1kb", encoded_bytes)
+    if not res:
+        print("Didn't sucessfully put to /pool1/1kb")
     print("----------- FINISHED CASCADE INITIAL SETUP   -----------")
 
 def fuse_mount():

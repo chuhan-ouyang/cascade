@@ -7,7 +7,6 @@ project(cascade CXX)
 set(cascade_VERSION 1.0rc0)
 set(cascade_build_VERSION 1.0rc0)
 
-
 # C++ STANDARD
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
