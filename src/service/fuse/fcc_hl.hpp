@@ -432,8 +432,8 @@ struct FuseClientContext {
     }
 
     void update_contents(Node* node, const std::string& path, persistent::version_t ver) {
+        dbg_default_trace("In {}, path: {}", __PRETTY_FUNCTION__, path);
         int record_id = extract_number(path);
-        dbg_default_error("In {}, path: {}", __PRETTY_FUNCTION__, path);
         TimestampLogger::log(BEFORE_CAPI_GET,node_id,record_id,get_walltime());
         auto result = capi.get(path, ver, true);
         TimestampLogger::log(AFTER_CAPI_GET,node_id,record_id,get_walltime());
@@ -492,8 +492,7 @@ struct FuseClientContext {
      Node* get_file(const std::string& path) {
         Node* node = root->get(path);
         if (!node->data.file_valid) {
-            dbg_default_error("In {}, !node->data.file_valid", __PRETTY_FUNCTION__);
-            dbg_default_error("In {}, getting file contents: {}", __PRETTY_FUNCTION__, path);
+            dbg_default_error("In {}, !node->data.file_valid, path {}", __PRETTY_FUNCTION__, path);
             // TODO op: path: should not include "/latest", see /pool1/k1, or /version
             auto new_path = path.substr(7);
             update_contents(node, new_path, CURRENT_VERSION);

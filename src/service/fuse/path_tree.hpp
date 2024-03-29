@@ -1,5 +1,6 @@
 #include <filesystem>
 #include <vector>
+#include <atomic>
 #include <derecho/utils/logger.hpp>
 
 namespace fs = std::filesystem;
@@ -24,18 +25,31 @@ enum NodeFlag : uint32_t {
 
 template <typename T>
 struct PathTree {
+    // last path of the full path name
+    // Ex. If the full path name is /pool1/k1, its label is k1
     std::string label;
     T data;
+    std::atomic<int> reader_count;
+    std::atomic<int> writer_count;
 
     PathTree<T>* parent;
     std::unordered_map<std::string, PathTree<T>*> children;
     // std::string objp_subdir;
 
     PathTree(std::string label, T data, PathTree<T>* parent)
-            : label(label), data(data), parent(parent) {}
+            : label(label), data(data), parent(parent) {
+                reader_count.store(0);
+                writer_count.store(0);
+            }
     PathTree(std::string label, PathTree<T>* parent, T data)
-            : label(label), parent(parent), data(data) {}
-    PathTree(std::string label, T data) : PathTree(label, data, nullptr) {}
+            : label(label), parent(parent), data(data) {
+                reader_count.store(0);
+                writer_count.store(0);
+            }
+    PathTree(std::string label, T data) : PathTree(label, data, nullptr) {
+                reader_count.store(0);
+                writer_count.store(0);
+    }
 
     ~PathTree() {
         for(auto& [k, v] : children) {
