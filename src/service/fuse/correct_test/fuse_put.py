@@ -4,7 +4,7 @@ capi = ServiceClientAPI()
 
 # Create object pool
 capi.create_object_pool("/pool1", "VolatileCascadeStoreWithStringKey", 0)
-capi.create_object_pool("/pool2", "VolatileCascadeStoreWithStringKey", 0)
+capi.create_object_pool("/pool2", "PersistentCascadeStoreWithStringKey", 0)
 capi.create_object_pool("/pool3", "VolatileCascadeStoreWithStringKey", 0)
 
 # Put in object pool
