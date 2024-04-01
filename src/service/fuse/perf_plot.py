@@ -1,45 +1,48 @@
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
-import os
 
-# Load the datasets with space as the separator
-fuse_perftest_data = pd.read_csv('fuse_perftest_logger.csv', header=None, names=['Label', 'Unknown', 'RunID', 'Timestamp', 'Extra'], sep=' ')
-fuse_client_data = pd.read_csv('fuse_client_logger.csv', header=None, names=['Label', 'Unknown', 'RunID', 'Timestamp', 'Extra'], sep=' ')
+# Ensure the 'perf' directory exists
+output_dir = 'perf'
+os.makedirs(output_dir, exist_ok=True)
 
-# Combine the data
-combined_data = pd.concat([fuse_perftest_data, fuse_client_data])
+# Step 1: Load the data
+columns = ['timestampTag', 'info1', 'runNumber', 'timestamp', 'info2']
+fuse_perftest = pd.read_csv('fuse_perftest_logger.csv', delim_whitespace=True, names=columns, usecols=['timestampTag', 'runNumber', 'timestamp'])
+fuse_client = pd.read_csv('fuse_client_logger.csv', delim_whitespace=True, names=columns, usecols=['timestampTag', 'runNumber', 'timestamp'])
 
-# Convert timestamps to numeric for plotting
-combined_data['Timestamp'] = pd.to_numeric(combined_data['Timestamp'])
+# Step 2: Combine the data
+combined_data = pd.concat([fuse_perftest, fuse_client])
 
-# Create a directory for the plots if it doesn't exist
-plot_directory = "plots"
-if not os.path.exists(plot_directory):
-    os.makedirs(plot_directory)
+# Prepare a dictionary to store phase differences for each run
+phases_diff = {i: [] for i in range(1, 5)} # For phase 1 to 4
+run_numbers = []
 
-# Plot a scatter plot for each run
-for run_id in combined_data['RunID'].unique():
-    # Filter data for the current run
-    run_data = combined_data[combined_data['RunID'] == run_id]
+# Step 3: Calculate phase differences for each run
+for run_number in sorted(combined_data['runNumber'].unique()):
+    run_data = combined_data[combined_data['runNumber'] == run_number]
+    timestamps = {}
+    for tag in [1000, 1001, 1002, 1003, 1004]:
+        timestamp = run_data[run_data['timestampTag'] == tag]['timestamp'].min()
+        timestamps[tag] = timestamp
 
-    # Create scatter plot
+    # Store phase differences in microseconds
+    for i in range(1, 5):
+        phase_diff = (timestamps[1000 + i] - timestamps[1000 + i - 1]) / 1000  # Convert ns to microseconds
+        phases_diff[i].append(phase_diff)
+    
+    run_numbers.append(run_number)
+
+# Step 4: Plot and save
+for i in range(1, 5):
     plt.figure(figsize=(10, 6))
-    plt.scatter(run_data['Label'], run_data['Timestamp'], alpha=0.6, edgecolors='w', linewidth=0.5)
-
-    # Set plot title and labels
-    plt.title(f'Scatter Plot for Run {run_id}')
-    plt.xlabel('Label')
-    plt.ylabel('Timestamp (ns)')
-
-    # Set x-ticks for labels
-    plt.xticks([1000, 1001, 1002, 1003, 1004])
-
-    # Show plot
-    plt.grid(True)
-    # Instead of plt.show(), save the figure to a file in the plots directory
-    filename = os.path.join(plot_directory, f'scatter_plot_run_{run_id}.png')
-    plt.savefig(filename)
-    # Clear the current figure to prevent overlap with next plots
-    plt.clf()
-
-print(f"All plots saved in the '{plot_directory}' directory.")
+    plt.scatter(run_numbers, phases_diff[i], label=f'Phase {i} Difference')
+    plt.title(f'Phase {i} Difference Across Runs')
+    plt.xlabel('Run Number')
+    plt.ylabel('Time Difference (microseconds)')
+    plt.legend()
+    plt.tight_layout()
+    
+    # Saving plot
+    plt.savefig(f'{output_dir}/phase_{i}_perf_plot.png')
+    plt.close()
