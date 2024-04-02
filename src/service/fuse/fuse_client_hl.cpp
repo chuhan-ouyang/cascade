@@ -83,7 +83,7 @@ static int cascade_fs_getattr(const char* path, struct stat* stbuf,
     }
     memset(stbuf, 0, sizeof(struct stat));
     int res = fcc()->get_stat(node, stbuf);
-    node->data.file_valid = true;
+    node->file_valid = true;
     dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return res;
 }
@@ -139,10 +139,12 @@ static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
     }
     if(fi->flags & O_TRUNC) {
         // TODO: data type change
+        node->mutex.lock();
         node->data.bytes = nullptr;
         node->data.size = 0;
+        node->mutex.unlock();
     }
-    node->data.file_valid = true;
+    node->file_valid = true;
     fi->fh = reinterpret_cast<uint64_t>(node);
     dbg_default_debug("Exited {}", __PRETTY_FUNCTION__);
     return 0;
@@ -184,7 +186,7 @@ static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offse
     } else {
         size = 0;
     }
-    node->data.file_valid = false;
+    node->file_valid = false;
     return size;
 }
 
@@ -220,7 +222,7 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
     if(node->data.flag & DIR_FLAG) {
         return -EACCES;
     }
-    fcc()->mutex.lock_shared();
+    node->mutex.lock_shared();
     dbg_default_debug("fs read, set read lock, path: {}", path);
     src->buf[0].flags = FUSE_BUF_FD_SEEK;
 	src->buf[0].pos = offset;
@@ -262,7 +264,7 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     if(node->data.flag & DIR_FLAG || !node->data.writeable) {  
         return -ENOTSUP;
     }
-    fcc()->mutex.lock();
+    node->mutex.lock();
     dbg_default_debug("fs write, set write lock, path: {}", path);
     size_t new_size = std::max(node->data.size, offset + size);
     std::shared_ptr<uint8_t[]> new_bytes(new uint8_t[new_size]);
@@ -285,10 +287,10 @@ static int cascade_fs_flush(const char* path, struct fuse_file_info* fi) {
 static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
     dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path);
-    node->data.file_valid = false;
+    node->file_valid = false;
     if((fi->flags & O_ACCMODE) == O_RDONLY) {
         dbg_default_debug("O_RDONLY");
-        fcc()->mutex.unlock_shared();
+        node->mutex.unlock_shared();
         dbg_default_debug("fs release, read unlock, path: {}", path);
         return 0;
     }
@@ -301,7 +303,7 @@ static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
         return -ENOTSUP;
     }
     int res = fcc()->put_to_capi(node);
-    fcc()->mutex.unlock();
+    node->mutex.unlock();
     dbg_default_debug("fs release, write unlock, path: {}", path);
     dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return res;
@@ -339,9 +341,10 @@ static int cascade_fs_unlink(const char* path) {
 
     // remove
     // TODO: data type change
+    node->mutex.lock();
     node->data.bytes = nullptr;
     node->data.size = 0;
-
+    node->mutex.unlock();
     // auto result = capi.remove(key);
     // node->parent->children.erase(node->label);
     // delete node;
@@ -384,8 +387,10 @@ static int cascade_fs_truncate(const char* path, off_t size,
     }
     // node->data.bytes.resize(size, 0);
     // TODO: data type change
+    node->mutex.lock();
     node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[size]);
     node->data.size = size;
+    node->mutex.unlock();
     int res = fcc()->put_to_capi(node);
     dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return res;

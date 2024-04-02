@@ -50,9 +50,6 @@ struct NodeData {
     std::shared_ptr<uint8_t[]> bytes;
     std::shared_ptr<void> fd_addr;
 
-    bool file_valid = false;
-
-
     // not empty if this node contains a full object pool path (then use list keys)
     std::string objp_name;
 
@@ -60,11 +57,11 @@ struct NodeData {
 
     bool writeable;
 
-    NodeData(const NodeFlag _flag) : flag(_flag), timestamp(0), file_valid(false),
+    NodeData(const NodeFlag _flag) : flag(_flag), timestamp(0),
                                     size(0), writeable(false) { }
 
     NodeData(const NodeFlag _flag, const std::string& _objp_name) :
-                                    flag(_flag), timestamp(0), file_valid(false),
+                                    flag(_flag), timestamp(0),
                                     objp_name(_objp_name), size(0), writeable(false) { }
 };
 
@@ -96,8 +93,6 @@ struct FuseClientContext {
 
     time_t update_interval;
     time_t last_update_sec;
-
-    std::shared_mutex mutex;
 
     FuseClientContext(int update_int, bool ver_snap) : capi(ServiceClientAPI::get_service_client()) {
         // DL = LoggerFactory::createLogger("fuse_client", spdlog::level::from_str(derecho::getConfString(CONF_LOGGER_DEFAULT_LOG_LEVEL)));
@@ -492,7 +487,7 @@ struct FuseClientContext {
     // TODO use object pool root meta file to edit version # and such?
      Node* get_file(const std::string& path) {
         Node* node = root->get(path);
-        if (!node->data.file_valid) {
+        if (!node->file_valid) {
             dbg_default_error("In {}, !node->data.file_valid", __PRETTY_FUNCTION__);
             dbg_default_error("In {}, getting file contents: {}", __PRETTY_FUNCTION__, path);
             // TODO op: path: should not include "/latest", see /pool1/k1, or /version

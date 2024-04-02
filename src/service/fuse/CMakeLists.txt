@@ -71,6 +71,8 @@ if (${HAS_FUSE})
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/correct_test
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/
 
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/correct_test/fuse_put.py
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_put.py
 
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/fuse_run.sh
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_run.sh
