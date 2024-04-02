@@ -206,8 +206,6 @@ static void cascade_fs_free_buf(void* buf) {
 
 static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
 			   size_t size, off_t offset, struct fuse_file_info *fi, void (**free_ptr)(void*)) {
-    // TODO (chuhan) : acquire read lock
-    fcc()->mutex.lock_shared();
     dbg_default_error("Entered {}, with path: {}", __PRETTY_FUNCTION__, path);
     struct fuse_bufvec *src;
     src = (fuse_bufvec*)malloc(sizeof(struct fuse_bufvec));
@@ -222,7 +220,8 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
     if(node->data.flag & DIR_FLAG) {
         return -EACCES;
     }
-    node->reader_count++;
+    fcc()->mutex.lock_shared();
+    dbg_default_debug("fs read, set read lock, path: {}", path);
     src->buf[0].flags = FUSE_BUF_FD_SEEK;
 	src->buf[0].pos = offset;
 
@@ -255,9 +254,6 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
 
 static int cascade_fs_write(const char* path, const char* buf, size_t size,
                             off_t offset, struct fuse_file_info* fi) {
-    // TODO (chuhan) : acquire write lock
-    fcc()->mutex.lock();
-    std::unique_lock<std::shared_mutex> lock(fcc()->mutex);
     dbg_default_error("Entered {}, with path: {}", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path);
     if(node == nullptr) {
@@ -266,7 +262,8 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     if(node->data.flag & DIR_FLAG || !node->data.writeable) {  
         return -ENOTSUP;
     }
-    node->writer_count++;
+    fcc()->mutex.lock();
+    dbg_default_debug("fs write, set write lock, path: {}", path);
     size_t new_size = std::max(node->data.size, offset + size);
     std::shared_ptr<uint8_t[]> new_bytes(new uint8_t[new_size]);
     memcpy(new_bytes.get(), node->data.bytes.get(), std::min(static_cast<size_t>(offset), node->data.size));
@@ -291,6 +288,8 @@ static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
     node->data.file_valid = false;
     if((fi->flags & O_ACCMODE) == O_RDONLY) {
         dbg_default_debug("O_RDONLY");
+        fcc()->mutex.unlock_shared();
+        dbg_default_debug("fs release, read unlock, path: {}", path);
         return 0;
     }
     if(node == nullptr) {
@@ -302,17 +301,9 @@ static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
         return -ENOTSUP;
     }
     int res = fcc()->put_to_capi(node);
+    fcc()->mutex.unlock();
+    dbg_default_debug("fs release, write unlock, path: {}", path);
     dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
-    // TODO (chuhan) : unlock lock
-    if (node->reader_count.load() > 0) {
-        fcc()->mutex.unlock_shared();
-        node->reader_count--;
-    } else if (node->writer_count.load() > 0) {
-        fcc()->mutex.unlock();
-        node->writer_count--;
-    } else {
-        dbg_default_error("In {}, neither reader or writer count > 0", __PRETTY_FUNCTION__);
-    }
     return res;
 }
 
