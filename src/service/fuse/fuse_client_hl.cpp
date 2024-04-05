@@ -272,6 +272,7 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     node->data.bytes = new_bytes;
     node->data.size = new_size;
     memcpy(node->data.bytes.get() + offset, buf, size);
+    node->mutex.unlock();
     dbg_default_error("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
     return size;
 }
@@ -303,7 +304,6 @@ static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
         return -ENOTSUP;
     }
     int res = fcc()->put_to_capi(node);
-    node->mutex.unlock();
     dbg_default_debug("fs release, write unlock, path: {}", path);
     dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return res;
