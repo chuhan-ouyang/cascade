@@ -24,19 +24,29 @@ enum NodeFlag : uint32_t {
 };
 
 // TODO: make PathTreeNode cache aligned
+// invariant: object T is a fixed-size length variable
 template <typename T>
 struct PathTree {
     // last path of the full path name
     // Ex. If the full path name is /pool1/k1, its label is k1
     std::string label;
+    char label_padding[64 - sizeof(std::string)]; 
+
     T data;
+    char data_padding[64 - sizeof(T) % 64]; 
 
     std::shared_mutex mutex;
+    char mutex_padding[64 - sizeof(std::shared_mutex) % 64]; 
     
     bool file_valid = false;
+    char bool_padding[64 - sizeof(bool)];
 
     PathTree<T>* parent;
+    char parent_padding[64 - sizeof(PathTree<T>*) % 64];
+
     std::unordered_map<std::string, PathTree<T>*> children;
+    char children_padding[64 - sizeof(std::unordered_map<std::string, PathTree<T>*>) % 64];
+
     // std::string objp_subdir;
     PathTree() {}
 

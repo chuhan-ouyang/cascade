@@ -77,13 +77,11 @@ static void cascade_fs_destroy(void* private_data) {
 static int cascade_fs_getattr(const char* path, struct stat* stbuf,
                               struct fuse_file_info* fi) {
     dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
-    auto node = fcc()->get(path);
-    if(node == nullptr) {
+    memset(stbuf, 0, sizeof(struct stat));
+    int res = fcc()->get_stat(path, stbuf);
+    if (res == -ENOENT) {
         return -ENOENT;
     }
-    memset(stbuf, 0, sizeof(struct stat));
-    int res = fcc()->get_stat(node, stbuf);
-    node->file_valid = true;
     dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return res;
 }
@@ -104,7 +102,6 @@ static int cascade_fs_readdir(const char* path, void* buf, fuse_fill_dir_t fille
         if(filler(buf, k.c_str(), nullptr, 0, (fuse_fill_dir_flags)0)) {
             break;
         }
-        // FSTree::get_stat(v, &stbuf);
     }
     dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return 0;
@@ -113,7 +110,7 @@ static int cascade_fs_readdir(const char* path, void* buf, fuse_fill_dir_t fille
 static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
     // TODO check O_ACCMODE
     dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
-    auto node = fcc()->get(path);
+    auto node = fcc()->get(path, true);
     if (node == nullptr) {
         dbg_default_debug("In {} fs_open node is nulllptr", __PRETTY_FUNCTION__);
     }
@@ -161,7 +158,7 @@ static int cascade_fs_create(const char* path, mode_t mode,
 
 static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
     // auto node = reinterpret_cast<FSTree::Node*>(fi->fh);
-    auto node = fcc()->get(path);
+    auto node = fcc()->get(path,true);
     if(node == nullptr) {
         return -ENOENT;
     }
@@ -257,7 +254,7 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
 static int cascade_fs_write(const char* path, const char* buf, size_t size,
                             off_t offset, struct fuse_file_info* fi) {
     dbg_default_error("Entered {}, with path: {}", __PRETTY_FUNCTION__, path);
-    auto node = fcc()->get(path);
+    auto node = fcc()->get(path, true);
     if(node == nullptr) {
         return -ENOENT;
     }
@@ -287,7 +284,7 @@ static int cascade_fs_flush(const char* path, struct fuse_file_info* fi) {
 
 static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
     dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
-    auto node = fcc()->get(path);
+    auto node = fcc()->get(path, true);
     node->file_valid = false;
     if((fi->flags & O_ACCMODE) == O_RDONLY) {
         dbg_default_debug("O_RDONLY");
@@ -311,7 +308,7 @@ static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
 
 static int cascade_fs_mkdir(const char* path, mode_t mode) {
     dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
-    if(fcc()->get(path)) {
+    if(fcc()->get(path, true)) {
         return -EEXIST;
     }
     auto op_root = fcc()->nearest_object_pool_root(path);
@@ -330,7 +327,7 @@ static int cascade_fs_mkdir(const char* path, mode_t mode) {
 static int cascade_fs_unlink(const char* path) {
     dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     // return -ENOTSUP;
-    auto node = fcc()->get(path);
+    auto node = fcc()->get(path, true);
     if(node == nullptr) {
         return -ENOENT;
     }
@@ -353,7 +350,7 @@ static int cascade_fs_unlink(const char* path) {
 }
 
 static int cascade_fs_rmdir(const char* path) {
-    auto node = fcc()->get(path);
+    auto node = fcc()->get(path, true);
     if(node == nullptr) {
         return -ENOENT;
     }
@@ -378,7 +375,7 @@ static int cascade_fs_rmdir(const char* path) {
 static int cascade_fs_truncate(const char* path, off_t size,
                                struct fuse_file_info* fi) {
     dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
-    auto node = fcc()->get(path);
+    auto node = fcc()->get(path, true);
     if(node == nullptr) {
         return -ENOENT;
     }

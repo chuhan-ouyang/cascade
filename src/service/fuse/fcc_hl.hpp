@@ -365,7 +365,8 @@ struct FuseClientContext {
     }
 
 
-    int get_stat(Node* node, struct stat* stbuf) {
+    int get_stat(const std::string& path, struct stat* stbuf) {
+        auto node = get(path, false);
         if(node == nullptr) {
             return -ENOENT;
         }
@@ -375,15 +376,15 @@ struct FuseClientContext {
         stbuf->st_uid = fuse_get_context()->uid;
         stbuf->st_gid = fuse_get_context()->gid;
         // TODO merge timestamp for dirs, update during set
-        int64_t sec = node->data.timestamp / 1'000'000;
-        int64_t nano = (node->data.timestamp % 1'000'000) * 1000;
+        int64_t sec = 0; // node->data.timestamp / 1'000'000;
+        int64_t nano = 0; // (node->data.timestamp % 1'000'000) * 1000;
         stbuf->st_mtim = timespec{sec, nano};
         stbuf->st_ctim = stbuf->st_mtim;
         // TODO: need work for how to set last access time
         stbuf->st_atim = timespec{last_update_sec, 0};
-        if(uint64_t(last_update_sec) * 1'000'000 < node->data.timestamp) {
-            stbuf->st_atim = stbuf->st_mtim;
-        }
+        // if(uint64_t(last_update_sec) * 1'000'000 < node->data.timestamp) {
+        //     stbuf->st_atim = stbuf->st_mtim;
+        // }
         // - at prefix dir location add .info file ???
 
         // TODO timestamps messing with vim??
@@ -401,7 +402,14 @@ struct FuseClientContext {
         } else {
             // TODO somehow even when 0444, can still write ???
             stbuf->st_mode = S_IFREG | (node->data.flag & KEY_FILE ? 0744 : 0444);
-            stbuf->st_size = node->data.size;
+            auto result = capi.get_size(path.substr(7), -1, true);
+            size_t size = 0;
+            for (auto& reply_future : result.get()) {
+                size = reply_future.second.get();
+                break;
+            }
+            dbg_default_debug("In {} size is : {}", __PRETTY_FUNCTION__, size);
+            stbuf->st_size = size;
         }
 
         // dev_t st_dev;         /* ID of device containing file */
@@ -485,6 +493,10 @@ struct FuseClientContext {
     }
 
     // TODO use object pool root meta file to edit version # and such?
+    /**
+     * Get the pointer for the node if it exists and fill in the KEY_FILE node's data content via update_contents
+     * @param path: full path name for the node
+    */
      Node* get_file(const std::string& path) {
         Node* node = root->get(path);
         if (!node->file_valid) {
@@ -499,14 +511,19 @@ struct FuseClientContext {
 
     // make a trash folder? (move on delete)
     // TODO op: new change
-    Node* get(const std::string& path) {
+    /**
+     * Get the pointer for the node if it exists and could fill in the KEY_FILE node's data content via get_file
+     * @param path: full path name for the node
+     * @param fill_contents: whether to fill the node's data content from capi.get from remote server
+    */
+    Node* get(const std::string& path, bool fill_contents) {
         // std::cout << "\nEntered fcc_hl:get: " << path << std::endl;
         Node* node = root->get(path);
         if (node == nullptr) {
             dbg_default_trace("In {}, cc_hl:Node is nullptr, path: {}", __PRETTY_FUNCTION__, path);
             return node;
         }
-        if (node->data.flag == KEY_FILE) {
+        if (node->data.flag == KEY_FILE && fill_contents) {
             dbg_default_trace("In {}, call get_file with path: {}", __PRETTY_FUNCTION__, path);
             get_file(path);
         }
