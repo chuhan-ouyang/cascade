@@ -23,7 +23,7 @@ std::shared_ptr<spdlog::logger> DL;
 int extract_number(const std::string& input) {
     size_t numPos = input.find_first_of("0123456789");
     if (numPos == std::string::npos) {
-        return 0;  
+        return 0;
     }
     std::string numStr = input.substr(numPos);
     int res = std::stoi(numStr);
@@ -408,8 +408,9 @@ struct FuseClientContext {
                 size = reply_future.second.get();
                 break;
             }
-            dbg_default_debug("In {} size is : {}", __PRETTY_FUNCTION__, size);
-            stbuf->st_size = size;
+            dbg_default_debug("Path: {}, size is : {}", __PRETTY_FUNCTION__, path, size);
+            off_t offset = 58;
+            stbuf->st_size = size - offset;
         }
 
         // dev_t st_dev;         /* ID of device containing file */
@@ -472,7 +473,7 @@ struct FuseClientContext {
             blob.memory_mode = derecho::cascade::object_memory_mode_t::EMPLACED;
             // TODO std::move ??
             node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[blob.size]);
-            
+
             // memcpy(node->data.bytes.get(), blob.bytes, blob.size);
 
             node->data.bytes.reset((uint8_t*)blob.bytes);
@@ -532,7 +533,7 @@ struct FuseClientContext {
     }
 
     /**
-     * Can use for future when cascade interface offers get attribute 
+     * Can use for future when cascade interface offers get attribute
     */
     // Node* get_attr(const std::string& path) {
     //     // std::cout << "\nEntered fcc_hl:get: " << path << std::endl;
