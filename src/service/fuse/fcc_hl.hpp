@@ -408,7 +408,7 @@ struct FuseClientContext {
                 size = reply_future.second.get();
                 break;
             }
-            dbg_default_debug("Path: {}, size is : {}", __PRETTY_FUNCTION__, path, size);
+            dbg_default_debug("Path: {}, size is : {}", path, size);
             off_t offset = 58;
             stbuf->st_size = size - offset;
         }
