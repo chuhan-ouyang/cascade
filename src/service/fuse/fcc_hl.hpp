@@ -17,6 +17,9 @@ namespace fs = std::filesystem;
 #define BEFORE_CAPI_GET 1001
 #define AFTER_CAPI_GET 1002
 
+#define BLOB_SIZE_OFFSET 58
+#define LATEST_PREFIX_SIZE 7
+
 
 std::shared_ptr<spdlog::logger> DL;
 
@@ -365,7 +368,7 @@ struct FuseClientContext {
     }
 
 
-    int get_stat(const std::string& path, struct stat* stbuf) {
+    int get_attr(const std::string& path, struct stat* stbuf) {
         auto node = get(path, false);
         if(node == nullptr) {
             return -ENOENT;
@@ -402,15 +405,13 @@ struct FuseClientContext {
         } else {
             // TODO somehow even when 0444, can still write ???
             stbuf->st_mode = S_IFREG | (node->data.flag & KEY_FILE ? 0744 : 0444);
-            auto result = capi.get_size(path.substr(7), -1, true);
-            size_t size = 0;
+            auto result = capi.get_size(path.substr(LATEST_PREFIX_SIZE), -1, true);
             for (auto& reply_future : result.get()) {
-                size = reply_future.second.get();
-                break;
+                size_t size = reply_future.second.get();
+                stbuf->st_size = std::max(size, (size_t)BLOB_SIZE_OFFSET) - BLOB_SIZE_OFFSET;
+                dbg_default_debug("Path: {}, size is : {}", path, size);
+                break; 
             }
-            dbg_default_debug("Path: {}, size is : {}", path, size);
-            off_t offset = 58;
-            stbuf->st_size = size - offset;
         }
 
         // dev_t st_dev;         /* ID of device containing file */
@@ -457,6 +458,7 @@ struct FuseClientContext {
 
             node->data.bytes.reset((uint8_t*)blob.bytes);
             node->data.size = blob.size;
+            // dbg_default_debug("In {}, path: {}, actual size: {}", __PRETTY_FUNCTION__, path, node->data.size);
             node->data.timestamp = reply.timestamp_us;
             return;
         }
@@ -504,7 +506,7 @@ struct FuseClientContext {
             dbg_default_error("In {}, !node->data.file_valid", __PRETTY_FUNCTION__);
             dbg_default_error("In {}, getting file contents: {}", __PRETTY_FUNCTION__, path);
             // TODO op: path: should not include "/latest", see /pool1/k1, or /version
-            auto new_path = path.substr(7);
+            auto new_path = path.substr(LATEST_PREFIX_SIZE);
             update_contents(node, new_path, CURRENT_VERSION);
         }
         return node;
@@ -521,7 +523,7 @@ struct FuseClientContext {
         // std::cout << "\nEntered fcc_hl:get: " << path << std::endl;
         Node* node = root->get(path);
         if (node == nullptr) {
-            dbg_default_trace("In {}, cc_hl:Node is nullptr, path: {}", __PRETTY_FUNCTION__, path);
+            dbg_default_debug("In {}, cc_hl:Node is nullptr, path: {}", __PRETTY_FUNCTION__, path);
             return node;
         }
         if (node->data.flag == KEY_FILE && fill_contents) {
@@ -531,24 +533,6 @@ struct FuseClientContext {
         // std::cout << "\nExited fcc_hl:get: " << path << std::endl;
         return node;
     }
-
-    /**
-     * Can use for future when cascade interface offers get attribute
-    */
-    // Node* get_attr(const std::string& path) {
-    //     // std::cout << "\nEntered fcc_hl:get: " << path << std::endl;
-    //     Node* node = root->get(path);
-    //     if (node == nullptr) {
-    //         dbg_default_trace("In {}, cc_hl:Node is nullptr, path: {}", __PRETTY_FUNCTION__, path);
-    //         return node;
-    //     }
-    //     if (node->data.flag == KEY_FILE) {
-    //         dbg_default_trace("In {}, call get_file with path: {}", __PRETTY_FUNCTION__, path);
-    //         node->data.size = 2;
-    //     }
-    //     // std::cout << "\nExited fcc_hl:get: " << path << std::endl;
-    //     return node;
-    // }
 
 
     // TODO: add documentation for this function

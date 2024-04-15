@@ -90,7 +90,7 @@ static int cascade_fs_getattr(const char* path, struct stat* stbuf,
     // }
     // off_t original_size = stbuf->st_size;
     // dbg_default_debug("In {}, original_size: {}", __PRETTY_FUNCTION__, original_size);
-    int res = fcc()->get_stat(path, stbuf);
+    int res = fcc()->get_attr(path, stbuf);
     // dbg_default_debug("In {}, after get_stat size: {}", __PRETTY_FUNCTION__, stbuf->st_size);
     if (res == -ENOENT) {
         return -ENOENT;
