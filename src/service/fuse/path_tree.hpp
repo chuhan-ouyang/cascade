@@ -44,7 +44,9 @@ struct PathTree {
     PathTree<T>* parent;
     char parent_padding[64 - sizeof(PathTree<T>*) % 64];
 
-    std::unordered_map<std::string, PathTree<T>*> children;
+    std::unordered_map<std::string, PathTree<T>*> children; 
+    // std::unordered_map<std::string, std::shared_ptr<PathTree<T>>> children;
+
     char children_padding[64 - sizeof(std::unordered_map<std::string, PathTree<T>*>) % 64];
 
     // std::string objp_subdir;

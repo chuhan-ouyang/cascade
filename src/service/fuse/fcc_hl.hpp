@@ -51,7 +51,6 @@ struct NodeData {
     // timestamp in microsec
     uint64_t timestamp;
     std::shared_ptr<uint8_t[]> bytes;
-    std::shared_ptr<void> fd_addr;
 
     // not empty if this node contains a full object pool path (then use list keys)
     std::string objp_name;
