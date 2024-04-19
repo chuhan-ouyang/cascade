@@ -42,6 +42,7 @@ int main (int argc, char* argv[]) {
     auto& capi = ServiceClientAPI::get_service_client();
     capi.create_object_pool<PersistentCascadeStoreWithStringKey>("/pool", 0, sharding_policy_type::HASH, {}, "");
     std::vector<uint8_t*> buffers;
+	std::vector<unint64> timeStampRuns;
     for (uint32_t i = 1; i <= num_runs; i++) {
         uint8_t* buffer = (uint8_t*) malloc(byte_size);
         for (size_t j = 0; j < byte_size; j++) {
@@ -52,12 +53,26 @@ int main (int argc, char* argv[]) {
         obj.blob = Blob(buffer, byte_size);
         auto res = capi.put(obj); // Get Timestamp from Put
         // Save Time From Put
+	for (auto& reply_future: res.get()){
+	    	auto reply = reply_future.second.get();
+		uint64 ts = std::get<1>(reply);
+		timeStampRuns.push_back(ts);
+		break;
+	}
+	
 	check_put_and_remove_result(res);
         buffers.push_back(buffer);
     }
     // Save Time As Well for Each Run. 
     // use Timestamp to get the version and value i
+    uint64 firstTime = timeStampRuns.at(0);
 
+    uint64 halfway  = timeStampRuns.at(num_runs/2);
+
+    uint64 lastTime = timeStampRuns.at(num_runs-1);
+
+
+	
 // Get Time Before Offset
 // Find Time
 
