@@ -50,12 +50,20 @@ int main (int argc, char* argv[]) {
         ObjectWithStringKey obj;
         obj.key = "/pool/tseek_test";
         obj.blob = Blob(buffer, byte_size);
-        auto res = capi.put(obj);
+        auto res = capi.put(obj); // Get Timestamp from Put
         check_put_and_remove_result(res);
         buffers.push_back(buffer);
     }
     // Save Time As Well for Each Run. 
-    // use Timestamp to get the version and value 
+    // use Timestamp to get the version and value i
+
+// Get Time Before Offset
+
+
+// Get Time At Offset
+
+
+// Get Time after Offset
     // for (auto& buffer : buffers) {
     //     free(buffer);
     // }
