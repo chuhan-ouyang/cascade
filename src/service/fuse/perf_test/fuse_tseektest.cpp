@@ -51,7 +51,8 @@ int main (int argc, char* argv[]) {
         obj.key = "/pool/tseek_test";
         obj.blob = Blob(buffer, byte_size);
         auto res = capi.put(obj); // Get Timestamp from Put
-        check_put_and_remove_result(res);
+        // Save Time From Put
+	check_put_and_remove_result(res);
         buffers.push_back(buffer);
     }
     // Save Time As Well for Each Run. 
@@ -61,7 +62,7 @@ int main (int argc, char* argv[]) {
 // Find Time
 
 // Get Time At Offset
-
+// Find Final Time
 
 // Get Time after Offset
     // for (auto& buffer : buffers) {
