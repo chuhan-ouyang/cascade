@@ -156,6 +156,22 @@ static int cascade_fs_create(const char* path, mode_t mode,
     return res;
 }
 
+static off_t cascade_fs_lseek( const char *path, off_t off, int whence, struct fuse_file_info *fi){
+    auto node = fcc()->get_file(path);
+    if(node == nullptr) {
+        return -ENOENT;
+    }
+    const int SEEK_TIME = 10;
+    // if whence Matches TSEEK
+    if (whence == SEEK_TIME){
+        // Node* node, const std::string& path, uint64_t ts_us)
+        fcc()->get_contents_by_time(node, path, off);   // cast to unsigned long?
+                                                        // Do we just autocast?
+        return off;
+    }
+    return -ENOTSUP;
+}
+
 static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
     // auto node = reinterpret_cast<FSTree::Node*>(fi->fh);
     auto node = fcc()->get(path,true);
@@ -510,7 +526,9 @@ static const struct fuse_operations cascade_fs_oper = {
         .destroy = cascade_fs_destroy,
         .create = cascade_fs_create,
         .utimens = cascade_fs_utimens,
-        .read_buf_fptr = cascade_fs_read_buf_fptr};
+        .read_buf_fptr = cascade_fs_read_buf_fptr, 
+        .lseek = cascade_fs_lseek
+};
 
 bool prepare_derecho_conf_file(const char* config_dir) {
     // TODO for some reason needs to already be in correct directory ???
