@@ -11,14 +11,6 @@
 
 using namespace derecho::cascade;
 
-#define check_put_and_remove_result(result) \
-    for (auto& reply_future:result.get()) {\
-        auto reply = reply_future.second.get();\
-        std::cout << "node(" << reply_future.first << ") replied with version:" << std::get<0>(reply)\
-                  << ",ts_us:" << std::get<1>(reply) << std::endl;\
-    }
-
-
 /**
  * Put to the key /pool/read_test for a variable size bytes object filled with "1"
  * Usage: ./fuse_perftest_put -s <kb_size> -r <runs>
@@ -37,12 +29,16 @@ int main (int argc, char* argv[]) {
             num_runs = std::atoi(argv[++i]);
         }
     }
+    if (num_runs < 4){
+        std::cerr << "Must have at least 4 Runs\n";
+        return -1;
+    }
     size_t byte_size = kb_size * 1024;
 
     auto& capi = ServiceClientAPI::get_service_client();
     capi.create_object_pool<PersistentCascadeStoreWithStringKey>("/pool", 0, sharding_policy_type::HASH, {}, "");
     std::vector<uint8_t*> buffers;
-	std::vector<unint64> timeStampRuns;
+	std::vector<uint64_t> timeStampRuns;
     for (uint32_t i = 1; i <= num_runs; i++) {
         uint8_t* buffer = (uint8_t*) malloc(byte_size);
         for (size_t j = 0; j < byte_size; j++) {
@@ -53,25 +49,41 @@ int main (int argc, char* argv[]) {
         obj.blob = Blob(buffer, byte_size);
         auto res = capi.put(obj); // Get Timestamp from Put
         // Save Time From Put
-	for (auto& reply_future: res.get()){
+	    for (auto& reply_future: res.get()){
 	    	auto reply = reply_future.second.get();
-		uint64 ts = std::get<1>(reply);
-		timeStampRuns.push_back(ts);
-		break;
-	}
-	
-	check_put_and_remove_result(res);
+            uint64_t ts = std::get<1>(reply);
+            timeStampRuns.push_back(ts);
+            break;
+        }
         buffers.push_back(buffer);
     }
     // Save Time As Well for Each Run. 
     // use Timestamp to get the version and value i
-    uint64 firstTime = timeStampRuns.at(0);
+    uint64_t firstTime = timeStampRuns.at(0);
+    uint64_t halfway  = timeStampRuns.at(num_runs/2);
+    uint64_t lastTime = timeStampRuns.at(num_runs-1);
+    const char* filePath = "/pool/tseek_test";
+    int file = open(filePath, O_RDWR);
+    if (file == -1) {
+        printf("Error opening the file.\n");
+        return 1;
+    }
+    int SEEK_TIME = 10;
+    off_t endOfFile = lseek(file, 0, SEEK_TIME);
+    if (endOfFile == (off_t)-1) {
+        printf("Error seeking the file.\n");
+        close(file);
+        return 1;
+    }
+    std::cout << "Offset Should be 0: " << endOfFile <<'\n';
 
-    uint64 halfway  = timeStampRuns.at(num_runs/2);
-
-    uint64 lastTime = timeStampRuns.at(num_runs-1);
-
-
+    off_t endOfFile = lseek(file, firstTime, SEEK_TIME);
+    if (endOfFile == (off_t)-1) {
+        printf("Error seeking the file.\n");
+        close(file);
+        return 1;
+    }
+    std::cout << "Offset Should be 0: " << endOfFile <<'\n';
 	
 // Get Time Before Offset
 // Find Time

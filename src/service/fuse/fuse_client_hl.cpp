@@ -161,6 +161,7 @@ static off_t cascade_fs_lseek( const char *path, off_t off, int whence, struct f
     if(node == nullptr) {
         return -ENOENT;
     }
+    std::cout << "USING LSEEK CASCADE\n";
     const int SEEK_TIME = 10;
     // if whence Matches TSEEK
     if (whence == SEEK_TIME){
