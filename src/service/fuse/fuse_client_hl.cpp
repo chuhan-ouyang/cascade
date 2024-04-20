@@ -157,6 +157,7 @@ static int cascade_fs_create(const char* path, mode_t mode,
 }
 
 static off_t cascade_fs_lseek( const char *path, off_t off, int whence, struct fuse_file_info *fi){
+    dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get_file(path);
     if(node == nullptr) {
         return -ENOENT;
@@ -168,8 +169,10 @@ static off_t cascade_fs_lseek( const char *path, off_t off, int whence, struct f
         // Node* node, const std::string& path, uint64_t ts_us)
         fcc()->get_contents_by_time(node, path, off);   // cast to unsigned long?
                                                         // Do we just autocast?
+        dbg_default_error("Exited good {}, path {} ", __PRETTY_FUNCTION__, path);
         return off;
     }
+    dbg_default_error("Exited Bad {}, path {} ", __PRETTY_FUNCTION__, path);
     return -ENOTSUP;
 }
 
