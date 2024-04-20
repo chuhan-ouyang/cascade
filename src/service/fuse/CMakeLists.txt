@@ -11,6 +11,7 @@ if (${HAS_FUSE})
     add_executable(fuse_client_hl fuse_client_hl.cpp)
     add_executable(fuse_perftest_put perf_test/fuse_perftest_put.cpp)
     add_executable(fuse_perftest perf_test/fuse_perftest.cpp)
+    add_executable(fuse_tseektest perf_test/fuse_tseektest.cpp)
 
     target_include_directories(fuse_client_hl PRIVATE
         $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
@@ -32,10 +33,17 @@ if (${HAS_FUSE})
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}>
     )
+    target_include_directories(fuse_tseektest PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}>
+)
 
     target_link_libraries(fuse_client_hl cascade readline fuse3)
     target_link_libraries(fuse_perftest_put cascade readline fuse3)
     target_link_libraries(fuse_perftest cascade readline fuse3)
+    target_link_libraries(fuse_tseektest cascade readline fuse3)
 
     set_target_properties(fuse_client_hl PROPERTIES OUTPUT_NAME cascade_fuse_client_hl)
 
@@ -85,6 +93,9 @@ if (${HAS_FUSE})
 
         COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_perftest
         ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_perftest
+
+        COMMAND ln -sf ${CMAKE_CURRENT_BINARY_DIR}/fuse_tseektest
+        ${CMAKE_CURRENT_BINARY_DIR}/fuse_cfg/n4/fuse_tseektest
 
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/fuse_cfg/run.sh.tmp
         COMMENT "prepare fuse node and client configuration"

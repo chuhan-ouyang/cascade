@@ -69,21 +69,21 @@ int main (int argc, char* argv[]) {
         return 1;
     }
     int SEEK_TIME = 10;
-    off_t endOfFile = lseek(file, 0, SEEK_TIME);
-    if (endOfFile == (off_t)-1) {
+    off_t offset0 = lseek(file, 0, SEEK_TIME);
+    if (offset0 == (off_t)-1) {
         printf("Error seeking the file.\n");
         close(file);
         return 1;
     }
-    std::cout << "Offset Should be 0: " << endOfFile <<'\n';
+    std::cout << "Offset Should be 0: " << offset0 <<'\n';
 
-    off_t endOfFile = lseek(file, firstTime, SEEK_TIME);
-    if (endOfFile == (off_t)-1) {
+    off_t offset2 = lseek(file, firstTime, SEEK_TIME);
+    if (offset2 == (off_t)-1) {
         printf("Error seeking the file.\n");
         close(file);
         return 1;
     }
-    std::cout << "Offset Should be 0: " << endOfFile <<'\n';
+    std::cout << "Offset Should be 0: " << offset2 <<'\n';
 	
 // Get Time Before Offset
 // Find Time
