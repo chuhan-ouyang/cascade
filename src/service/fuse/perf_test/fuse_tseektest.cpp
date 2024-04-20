@@ -59,12 +59,13 @@ int main (int argc, char* argv[]) {
     for (uint64_t timeStamp : timeStampRuns){
         std::cout << "Time: " << timeStamp <<'\n';
     }
-    const char* filePath = "/pool/tseek_test";
+    const char* filePath = "test/latest/pool/read_test";
     int file = open(filePath, O_RDWR);
-    if (file == -1) {
-        printf("Error opening the file.\n");
+    if (file < 0) {
+        perror("Error opening file");
         return 1;
     }
+    std::vector<char> buffer(byte_size);
     int SEEK_TIME = 10;
     off_t offset0 = lseek(file, 0, SEEK_TIME);
     if (offset0 == (off_t)-1) {
