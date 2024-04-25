@@ -128,7 +128,8 @@ struct FuseClientContext {
         }
     }
 
-    Node* add_op_info(const fs::path& path, const std::string& contents) {
+    // Node* add_op_info(const fs::path& path, const std::string& contents) {
+    std::shared_ptr<Node> add_op_info(const fs::path& path, const std::string& contents) {
         auto node = root->set(path, NodeData(METADATA_PREFIX_DIR),
                               NodeData(METADATA_INFO_FILE));
         if(node == nullptr) {
@@ -141,7 +142,8 @@ struct FuseClientContext {
         return node;
     }
 
-    Node* add_snapshot_time(const fs::path& path) {
+    // Node* add_snapshot_time(const fs::path& path) {
+    std::shared_ptr<Node> add_snapshot_time(const fs::path& path) {
         return root->set(path, NodeData(SNAPSHOT_ROOT_DIR), NodeData(SNAPSHOT_TIME_DIR));
     }
 
@@ -151,10 +153,12 @@ struct FuseClientContext {
     // }
 
     // TODO op: add documentation
-    Node* add_full_op_dir(const fs::path& path, const std::string& objp_name) {
+    // Node* add_full_op_dir(const fs::path& path, const std::string& objp_name) {
+    std::shared_ptr<Node> add_full_op_dir(const fs::path& path, const std::string& objp_name) {
         dbg_default_trace("Entered: {}", __PRETTY_FUNCTION__);
         // int, data
-        Node* path_tree_node = root->set(path, NodeData(OP_PREFIX_DIR), NodeData(OP_PATH_DIR, objp_name));
+        // Node* path_tree_node = root->set(path, NodeData(OP_PREFIX_DIR), NodeData(OP_PATH_DIR, objp_name));
+        std::shared_ptr<Node> path_tree_node = root->set(path, NodeData(OP_PREFIX_DIR), NodeData(OP_PATH_DIR, objp_name));
         // TODO op: path should not contain /latest
         if (path_tree_node == nullptr) {
             dbg_default_trace("In {}, path_tree_node is nullptr", __PRETTY_FUNCTION__);
@@ -169,9 +173,11 @@ struct FuseClientContext {
     /**
      * Add node for the path, without getting contents for the file
     */
-    Node* add_op_key(const fs::path& path, const std::string& op_path) {
+    // Node* add_op_key(const fs::path& path, const std::string& op_path) {
+    std::shared_ptr<Node> add_op_key(const fs::path& path, const std::string& op_path) {
         // invariant: assumes op_root already exists
-        Node* node_ptr = root->set(path, NodeData(KEY_DIR, op_path), NodeData(KEY_FILE, op_path));
+        // Node* node_ptr = root->set(path, NodeData(KEY_DIR, op_path), NodeData(KEY_FILE, op_path));
+        std::shared_ptr<Node> node_ptr = root->set(path, NodeData(KEY_DIR, op_path), NodeData(KEY_FILE, op_path));
         // TODO op: check that op_path is correct
         if (node_ptr->data.objp_name.empty()) {
             dbg_default_trace("In {}, path: {}, op_path is empty: {}, node's objp_name is empty", __PRETTY_FUNCTION__, path, op_path.empty());
@@ -181,12 +187,14 @@ struct FuseClientContext {
     }
 
     // TODO op: change
-    Node* add_op_key_dir(const fs::path& path) {
+    // Node* add_op_key_dir(const fs::path& path) {
+    std::shared_ptr<Node> add_op_key_dir(const fs::path& path) {
         // invariant: assumes op_root already exists
         return root->set(path, NodeData(KEY_DIR), NodeData(KEY_DIR));
     }
 
-    Node* object_pool_root(Node* node) {
+    // Node* object_pool_root(Node* node) {
+    std::shared_ptr<Node> object_pool_root(std::shared_ptr<Node> node) {
         if(node == nullptr) {
             return nullptr;
         }
@@ -199,7 +207,8 @@ struct FuseClientContext {
         return nullptr;
     }
 
-    Node* nearest_object_pool_root(const fs::path& path) {
+    // Node* nearest_object_pool_root(const fs::path& path) {
+    std::shared_ptr<Node> nearest_object_pool_root(const fs::path& path) {
         auto node = root->get_while_valid(path);
         return object_pool_root(node);
     }
@@ -245,7 +254,8 @@ struct FuseClientContext {
         }
     }
 
-    std::string path_while_op(const Node* node) const {
+    // std::string path_while_op(const Node* node) const {
+    std::string path_while_op(std::shared_ptr<const Node> node) const {
         std::vector<std::string> parts;
         for(; node != nullptr && (node->data.flag & OP_FLAG); node = node->parent) {
             parts.push_back(node->label);
@@ -258,7 +268,8 @@ struct FuseClientContext {
         return res;
     }
 
-    int put_to_capi(const Node* node) {
+    // int put_to_capi(const Node* node) {
+    int put_to_capi(const std::shared_ptr<Node> node) {
         // invariant: node is file
         ObjectWithStringKey obj;
         obj.key = path_while_op(node);
@@ -436,7 +447,8 @@ struct FuseClientContext {
         return ss.str();
     }
 
-    void update_contents(Node* node, const std::string& path, persistent::version_t ver) {
+    // void update_contents(Node* node, const std::string& path, persistent::version_t ver) {
+    void update_contents(std::shared_ptr<Node> node, const std::string& path, persistent::version_t ver) {
         int record_id = extract_number(path);
         dbg_default_error("In {}, path: {}", __PRETTY_FUNCTION__, path);
         TimestampLogger::log(BEFORE_CAPI_GET,node_id,record_id,get_walltime());
@@ -464,7 +476,8 @@ struct FuseClientContext {
     }
 
     // not to be called by latest
-    void get_contents_by_time(Node* node, const std::string& path, uint64_t ts_us) {
+    // void get_contents_by_time(Node* node, const std::string& path, uint64_t ts_us) {
+    void get_contents_by_time(std::shared_ptr<Node> node, const std::string& path, uint64_t ts_us) {
         auto result = capi.get_by_time(path, ts_us, true);
         // TODO only get file contents on open
 
@@ -499,8 +512,10 @@ struct FuseClientContext {
      * Get the pointer for the node if it exists and fill in the KEY_FILE node's data content via update_contents
      * @param path: full path name for the node
     */
-     Node* get_file(const std::string& path) {
-        Node* node = root->get(path);
+    // Node* get_file(const std::string& path) {
+    std::shared_ptr<Node> get_file(const std::string& path) {
+        // Node* node = root->get(path);
+        std::shared_ptr<Node> node = root->get(path);
         if (!node->file_valid) {
             dbg_default_error("In {}, !node->data.file_valid", __PRETTY_FUNCTION__);
             dbg_default_error("In {}, getting file contents: {}", __PRETTY_FUNCTION__, path);
@@ -518,9 +533,11 @@ struct FuseClientContext {
      * @param path: full path name for the node
      * @param fill_contents: whether to fill the node's data content from capi.get from remote server
     */
-    Node* get(const std::string& path, bool fill_contents) {
+    // Node* get(const std::string& path, bool fill_contents) {
+    std::shared_ptr<Node> get(const std::string& path, bool fill_contents) {
         // std::cout << "\nEntered fcc_hl:get: " << path << std::endl;
-        Node* node = root->get(path);
+        // Node* node = root->get(path);
+        std::shared_ptr<Node> node = root->get(path);
         if (node == nullptr) {
             dbg_default_debug("In {}, cc_hl:Node is nullptr, path: {}", __PRETTY_FUNCTION__, path);
             return node;
@@ -535,7 +552,8 @@ struct FuseClientContext {
 
 
     // TODO: add documentation for this function
-    void update_dir(Node* node, const fs::path& prefix) {
+    // void update_dir(Node* node, const fs::path& prefix) {
+    void update_dir(std::shared_ptr<Node> node, const fs::path& prefix) {
         dbg_default_trace("Entered {}", __PRETTY_FUNCTION__);
         if (node == nullptr) {
             dbg_default_trace("In {} node is nullptr", __PRETTY_FUNCTION__);
@@ -591,8 +609,10 @@ struct FuseClientContext {
         }
     }
 
-    Node* get_dir(const std::string& path) {
-        Node* node = root->get(path);
+    // Node* get_dir(const std::string& path) {
+    std::shared_ptr<Node> get_dir(const std::string& path) {
+        // Node* node = root->get(path);
+        std::shared_ptr<Node> node = root->get(path);
         update_dir(node, LATEST_PATH);
         return node;
     }

@@ -155,7 +155,8 @@ static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
         node->mutex.unlock();
     }
     node->file_valid = true;
-    fi->fh = reinterpret_cast<uint64_t>(node);
+    // fi->fh = reinterpret_cast<uint64_t>(node);
+    fi->fh = reinterpret_cast<uint64_t>(node.get());
     dbg_default_debug("Exited {}", __PRETTY_FUNCTION__);
     return 0;
 }
@@ -380,7 +381,9 @@ static int cascade_fs_rmdir(const char* path) {
     // remove
     fcc()->local_latest_dirs.erase(path);
     node->parent->children.erase(node->label);
-    delete node;
+
+    // TODO (chuhan) 4/25: how to correctly free resoruces now that v is shared ptr
+    // delete node;
 
     return 0;
 }
@@ -641,6 +644,5 @@ int main(int argc, char* argv[]) {
                 fuse_opt_free_args(&args);
         }
     }
-
     return res;
 }

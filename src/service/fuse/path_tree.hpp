@@ -41,29 +41,37 @@ struct PathTree {
     bool file_valid = false;
     char bool_padding[64 - sizeof(bool)];
 
-    PathTree<T>* parent;
-    char parent_padding[64 - sizeof(PathTree<T>*) % 64];
+    // PathTree<T>* parent;
+    std::shared_ptr<PathTree<T>> parent;
 
-    std::unordered_map<std::string, PathTree<T>*> children; 
-    // std::unordered_map<std::string, std::shared_ptr<PathTree<T>>> children;
+    // char parent_padding[64 - sizeof(PathTree<T>*) % 64];
+    char parent_padding[64 - sizeof(std::shared_ptr<PathTree<T>>) % 64];
 
-    char children_padding[64 - sizeof(std::unordered_map<std::string, PathTree<T>*>) % 64];
+    // std::unordered_map<std::string, PathTree<T>*> children; 
+    std::unordered_map<std::string, std::shared_ptr<PathTree<T>>> children;
+
+    // char children_padding[64 - sizeof(std::unordered_map<std::string, PathTree<T>*>) % 64];
+    char children_padding[64 - sizeof(std::unordered_map<std::string, std::shared_ptr<PathTree<T>>>) % 64];
 
     // std::string objp_subdir;
     PathTree() {}
 
-    PathTree(std::string label, T data, PathTree<T>* parent)
-            : label(label), data(data), parent(parent) {}
+    // PathTree(std::string label, T data, PathTree<T>* parent)
+    //         : label(label), data(data), parent(parent) {}
+
+    PathTree(std::string label, T data, std::shared_ptr<PathTree<T>> parent)
+        : label(label), data(data), parent(parent) {}
 
     // PathTree(std::string label, PathTree<T>* parent, T data)
     //         : label(label), parent(parent), data(data) {}
 
     PathTree(std::string label, T data) : PathTree(label, data, nullptr) {}
 
+    // TODO (chuhan) 4/25: how to correctly free resoruces now that v is shared ptr
     ~PathTree() {
-        for(auto& [k, v] : children) {
-            delete v;
-        }
+        // for(auto& [k, v] : children) {
+        //    // delete v;
+        // }
     }
 
     std::vector<std::string> entries() const {
@@ -78,7 +86,10 @@ struct PathTree {
     // TODO: try deleting
     std::string absolute_path() const {
         std::vector<std::string> parts;
-        for(const PathTree<T>* node = this; node != nullptr; node = node->parent) {
+        // for(const PathTree<T>* node = this; node != nullptr; node = node->parent) {
+        //     parts.push_back(node->label);
+        // }
+        for(const std::shared_ptr<PathTree<T>> node = this; node != nullptr; node = node->parent) {
             parts.push_back(node->label);
         }
         std::string res;
@@ -119,7 +130,8 @@ struct PathTree {
      *  @tparam data is the final node's data to set in the tree 
      *  @return Will return a node ptr no matter if it is newly created or already exists
     */
-    PathTree<T>* set(const fs::path& path, T intermediate_data, T data) {
+    // PathTree<T>* set(const fs::path& path, T intermediate_data, T data) {
+    std::shared_ptr<PathTree<T>> set(const fs::path& path, T intermediate_data, T data) {
         if(path.empty()) {
             return nullptr;
         }
@@ -129,13 +141,14 @@ struct PathTree {
             return nullptr;
         }
         bool created_new = false;
-        PathTree<T>* cur = this;
+        std::shared_ptr<PathTree<T>> cur(this);
         // Iterate from root to child directory
         for(++it; it != path.end(); ++it) {
             // Create directory if it is in the path but currently does not exist
             if(!cur->children.count(*it)) {
                 created_new = true;
-                PathTree<T>* next = new PathTree<T>(*it, intermediate_data, cur);
+                // PathTree<T>* next = new PathTree<T>(*it, intermediate_data, cur);
+                std::shared_ptr<PathTree<T>> next = std::make_shared<PathTree<T>>(*it, intermediate_data, cur);
                 cur->children.insert({*it, next});
                 cur = next;
             } else {
@@ -151,7 +164,8 @@ struct PathTree {
     }
 
     // returns nullptr on fail or location does not exist
-    PathTree<T>* get(const fs::path& path) {
+    // PathTree<T>* get(const fs::path& path) {
+    std::shared_ptr<PathTree<T>> get(const fs::path& path) {
         if(path.empty()) {
             return nullptr;
         }
@@ -159,7 +173,8 @@ struct PathTree {
         if(*it != label) {
             return nullptr;
         }
-        PathTree<T>* cur = this;
+        // PathTree<T>* cur = this;
+        std::shared_ptr<PathTree<T>> cur(this);
         for(++it; it != path.end(); ++it) {
             if(!cur->children.count(*it)) {
                 return nullptr;
@@ -169,7 +184,8 @@ struct PathTree {
         return cur;
     }
 
-    PathTree<T>* get_while_valid(const fs::path& path) {
+    // PathTree<T>* get_while_valid(const fs::path& path) {
+    std::shared_ptr<PathTree<T>> get_while_valid(const fs::path& path) {
         if(path.empty()) {
             return nullptr;
         }
@@ -177,7 +193,8 @@ struct PathTree {
         if(*it != label) {
             return nullptr;
         }
-        PathTree<T>* cur = this;
+        // PathTree<T>* cur = this;
+        std::shared_ptr<PathTree<T>> cur(this);
         for(++it; it != path.end(); ++it) {
             if(!cur->children.count(*it)) {
                 return cur;
@@ -187,26 +204,30 @@ struct PathTree {
         return cur;
     }
 
-    PathTree<T>* extract(const fs::path& path) {
+    // PathTree<T>* extract(const fs::path& path) {
+    std::shared_ptr<PathTree<T>> extract(const fs::path& path) {
         // TODO use??
-        PathTree<T>* cur = get(path);
+        // PathTree<T>* cur = get(path);
+        std::shared_ptr<PathTree<T>> cur = get(path);
         if(cur == nullptr || cur->parent == nullptr) {
             return nullptr;
         }
-        PathTree<T>* par = cur->parent;
+        // PathTree<T>* par = cur->parent;
+        std::shared_ptr<PathTree<T>> par = cur->parent;
         par->children.erase(cur->label);
-
         cur->parent = nullptr;
         return cur;
     }
 
     // deletes node and replaces with replacement. updating parent
     // requires same label
-    static bool replace(PathTree<T>* node, PathTree<T>* replacement) {
+    // static bool replace(PathTree<T>* node, PathTree<T>* replacement) {
+    static bool replace(std::shared_ptr<PathTree<T>> node, std::shared_ptr<PathTree<T>> replacement) {
         if(node == nullptr || replacement == nullptr || node->label != replacement->label || node->parent == nullptr) {
             return false;
         }
-        PathTree<T>* par = node->parent;
+        // PathTree<T>* par = node->parent;
+        std::shared_ptr<PathTree<T>> par = node->parent;
         replacement->parent = par;
         par->children[node->label] = replacement;
         delete node;
