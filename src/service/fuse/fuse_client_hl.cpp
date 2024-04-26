@@ -163,11 +163,14 @@ static off_t cascade_fs_lseek( const char *path, off_t off, int whence, struct f
         return -ENOENT;
     }
     std::cout << "USING LSEEK CASCADE\n";
-    const int SEEK_TIME = 10;
     // if whence Matches TSEEK
-    if (whence == SEEK_TIME){
+    if (whence == SEEK_DATA){
+        const std::string pathString(path);
+        auto new_path = pathString.substr(7);
+        dbg_default_error("new_path {}, uncasted {} casted {}", new_path, off, (uint64_t) off);
         // Node* node, const std::string& path, uint64_t ts_us)
-        fcc()->get_contents_by_time(node, path, off);   // cast to unsigned long?
+        uint64_t res = (uint64_t) off;
+        fcc()->get_contents_by_time(node, new_path, res);   // cast to unsigned long?
                                                         // Do we just autocast?
         dbg_default_error("Exited good {}, path {} ", __PRETTY_FUNCTION__, path);
         return off;
@@ -268,6 +271,7 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
         TimestampLogger::flush(logger_path, false);
     }
     dbg_default_error("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
+    dbg_default_error("Size Read {}, with path: {}", size, path);
     return size;
 }
 

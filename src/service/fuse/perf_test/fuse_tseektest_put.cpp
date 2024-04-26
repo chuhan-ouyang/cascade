@@ -50,11 +50,12 @@ int main (int argc, char* argv[]) {
     capi.create_object_pool<PersistentCascadeStoreWithStringKey>("/pool", 0, sharding_policy_type::HASH, {}, "");
     std::vector<uint8_t*> buffers;
 	std::vector<uint64_t> timeStampRuns;
-    for (uint32_t i = 1; i <= num_runs; i++) {
+    for (uint32_t i = 0; i < num_runs; i++) {
         uint8_t* buffer = (uint8_t*) malloc(byte_size);
         for (size_t j = 0; j < byte_size; j++) {
-            buffer[j] = char(i + '0');
+            buffer[j] = char(i) + '0';
         }
+        std::cout << buffer[0];
         ObjectWithStringKey obj;
         obj.key = "/pool/read_test";
         obj.blob = Blob(buffer, byte_size);

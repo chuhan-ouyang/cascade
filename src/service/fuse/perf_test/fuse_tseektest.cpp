@@ -38,43 +38,50 @@ int main (int argc, char* argv[]) {
         return 1;
     }
     uint32_t kb_size = 0, num_runs = 0;
+    int index = 0;
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
         if (arg == "-s" && i + 1 < argc) {
-            kb_size = std::atoi(argv[++i]);
+            index = std::atoi(argv[++i]);
         } else if (arg == "-n" && i + 1 < argc) {
             num_runs = std::atoi(argv[++i]);
         }
     }
-    size_t byte_size = kb_size * 1024;
-    // std::vector<uint64_t> timeStampRuns = readCSV();
-    // uint64_t firstTime = timeStampRuns.at(0);
-    // uint64_t halfway  = timeStampRuns.at(num_runs/2);
-    // uint64_t lastTime = timeStampRuns.at(num_runs-1);
+    size_t byte_size = 1024;
+    std::vector<uint64_t> timeStampRuns = readCSV();
+    uint64_t firstTime = timeStampRuns.at(0);
+    uint64_t halfway  = timeStampRuns.at(num_runs/2);
+    uint64_t lastTime = timeStampRuns.at(num_runs-1);
 
-    // for (uint64_t timeStamp : timeStampRuns){
-    //     std::cout << "Time: " << timeStamp <<'\n';
-    // }
+    for (uint64_t timeStamp : timeStampRuns){
+        std::cout << "Time: " << timeStamp <<'\n';
+    }
     const char* filePath = "test/latest/pool/read_test";
     int file = open(filePath, O_RDWR);
     if (file < 0) {
         perror("Error opening file");
         return 1;
     }
-    std::vector<char> buffer(byte_size);
+
+    uint64_t timeOffset = timeStampRuns.at(index);
     // Move the file pointer to the desired offset
-    off_t newPosition = lseek(file, 5, SEEK_SET);
+    off_t newPosition = lseek(file, timeOffset, SEEK_DATA);
     if (newPosition < 0) {
         perror("Error seeking file");
         close(file);
         return 1;
     }
-    ssize_t bytesRead = read(file, buffer.data(), byte_size-5);
-    if (bytesRead < 0) {
-        perror("Error reading from file");
-        close(file);
-        return 1;
-    }
+    // std::vector<char> buffer(byte_size);
+    // ssize_t bytesRead = read(file, buffer.data(), byte_size);
+    // if (bytesRead < 0) {
+    //     perror("Error reading from file");
+    //     close(file);
+    //     return 1;
+    // }
+    // for (int i= 0; i < byte_size; i++){
+    //     std::cout << buffer.at(i);
+    // }
+    // std::cout <<'\n';
     close(file);
 //    int SEEK_TIME = 10;
 //    off_t offset0 = lseek(file, 0, SEEK_TIME);
