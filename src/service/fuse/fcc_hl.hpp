@@ -65,6 +65,8 @@ struct NodeData {
     NodeData(const NodeFlag _flag, const std::string& _objp_name) :
                                     flag(_flag), timestamp(0),
                                     objp_name(_objp_name), size(0), writeable(false) { }
+    
+    ~NodeData() {};
 };
 
 namespace derecho {
@@ -73,7 +75,7 @@ namespace cascade {
 struct FuseClientContext {
     using Node = PathTree<NodeData>;
 
-    std::unique_ptr<Node> root;
+    std::shared_ptr<Node> root;
 
     // object pools are not versioned? :(
     const fs::path METADATA_PATH = "/.cascade";
@@ -109,7 +111,7 @@ struct FuseClientContext {
         update_interval = update_int;
 
         root = std::make_unique<Node>(ROOT, NodeData(ROOT_DIR));
-        root->set(SNAPSHOT_PATH, NodeData(SNAPSHOT_ROOT_DIR), NodeData(SNAPSHOT_ROOT_DIR));
+        // root->set(SNAPSHOT_PATH, NodeData(SNAPSHOT_ROOT_DIR), NodeData(SNAPSHOT_ROOT_DIR));
         reset_latest();
         fill_at(LATEST_PATH, CURRENT_VERSION);
         last_update_sec = time(0);
@@ -128,20 +130,26 @@ struct FuseClientContext {
         }
     }
 
+    /**
+     * @fn Return true if the node is not a nullptr and false otherwise
+    */
     // Node* add_op_info(const fs::path& path, const std::string& contents) {
-    std::shared_ptr<Node> add_op_info(const fs::path& path, const std::string& contents) {
+    bool add_op_info(const fs::path& path, const std::string& contents) {
         auto node = root->set(path, NodeData(METADATA_PREFIX_DIR),
                               NodeData(METADATA_INFO_FILE));
         if(node == nullptr) {
-            return nullptr;
+            return false;
         }
         node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[contents.size()]);
         std::copy(contents.begin(), contents.end(), node->data.bytes.get());
         node->data.size = contents.size();
         // auto str = reinterpret_cast<char*>(node->data.bytes.get());
-        return node;
+        return true;
     }
 
+    /**
+     * @fn Return 
+    */
     // Node* add_snapshot_time(const fs::path& path) {
     std::shared_ptr<Node> add_snapshot_time(const fs::path& path) {
         return root->set(path, NodeData(SNAPSHOT_ROOT_DIR), NodeData(SNAPSHOT_TIME_DIR));

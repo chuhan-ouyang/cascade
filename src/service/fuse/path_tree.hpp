@@ -68,11 +68,7 @@ struct PathTree {
     PathTree(std::string label, T data) : PathTree(label, data, nullptr) {}
 
     // TODO (chuhan) 4/25: how to correctly free resoruces now that v is shared ptr
-    ~PathTree() {
-        // for(auto& [k, v] : children) {
-        //    // delete v;
-        // }
-    }
+    ~PathTree() {}
 
     std::vector<std::string> entries() const {
         std::vector<std::string> res;
