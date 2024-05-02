@@ -154,6 +154,12 @@ static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
         node->data.size = 0;
         node->mutex.unlock();
     }
+    if((fi->flags & O_ACCMODE) == O_RDONLY) {
+        dbg_default_error("Entered {}, path: {}, before read lock", __PRETTY_FUNCTION__, path);
+        node->mutex.lock_shared();
+        dbg_default_error("Entered {}, path: {}, after read lock", __PRETTY_FUNCTION__, path);
+        return 0;
+    }
     node->file_valid = true;
     fi->fh = reinterpret_cast<uint64_t>(node);
     dbg_default_debug("Exited {}", __PRETTY_FUNCTION__);
@@ -232,7 +238,7 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
     if(node->data.flag & DIR_FLAG) {
         return -EACCES;
     }
-    node->mutex.lock_shared();
+    // node->mutex.lock_shared();
     // dbg_default_debug("fs read, set read lock, path: {}", path);
     src->buf[0].flags = FUSE_BUF_FD_SEEK;
 	src->buf[0].pos = offset;
@@ -274,7 +280,9 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     if(node->data.flag & DIR_FLAG || !node->data.writeable) {  
         return -ENOTSUP;
     }
+    dbg_default_error("Entered {}, path: {}, before write lock", __PRETTY_FUNCTION__, path);
     node->mutex.lock();
+    dbg_default_error("Entered {}, path: {}, after write lock", __PRETTY_FUNCTION__, path);
     // dbg_default_debug("fs write, set write lock, path: {}", path);
     size_t new_size = std::max(node->data.size, offset + size);
     std::shared_ptr<uint8_t[]> new_bytes(new uint8_t[new_size]);
@@ -282,7 +290,9 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     node->data.bytes = new_bytes;
     node->data.size = new_size;
     memcpy(node->data.bytes.get() + offset, buf, size);
+    dbg_default_error("Entered {}, path: {}, before write unlock", __PRETTY_FUNCTION__, path);
     node->mutex.unlock();
+    dbg_default_error("Entered {}, path: {}, after write unlock", __PRETTY_FUNCTION__, path);
     dbg_default_debug("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
     return size;
 }
@@ -300,8 +310,9 @@ static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
     auto node = fcc()->get(path, true);
     node->file_valid = false;
     if((fi->flags & O_ACCMODE) == O_RDONLY) {
-        dbg_default_debug("O_RDONLY");
+        dbg_default_error("Entered {}, path: {}, before read unlock", __PRETTY_FUNCTION__, path);
         node->mutex.unlock_shared();
+        dbg_default_error("Entered {}, path: {}, after read unlock", __PRETTY_FUNCTION__, path);
         // dbg_default_debug("fs release, read unlock, path: {}", path);
         return 0;
     }
@@ -578,10 +589,6 @@ int main(int argc, char* argv[]) {
             fprintf(stderr, "error: no mountpoint specified\n");
             res = 1;
             throw 1;
-        // } else if(!opts.singlethread) {
-        //     fprintf(stderr, "error: multi-threaded client not supported\n");
-        //     res = 1;
-        //     throw 1;
         } else if(!prepare_derecho_conf_file(options.client_dir)) {
             fprintf(stderr, "error: invalid client directory\n"
                             "(dir needs derecho.cfg if DERECHO_CONF_FILE envvar is not set)\n");

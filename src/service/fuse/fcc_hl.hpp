@@ -315,7 +315,7 @@ struct FuseClientContext {
             // op_root_path = /latest/..
             auto op_root_node = add_full_op_dir(op_root_path, op_root);
             if(op_root_node == nullptr) {
-                dbg_default_error("In {}, op root node ({}) is not successfully created", __PRETTY_FUNCTION__, op_root_path);
+                // dbg_default_error("In {}, op root node ({}) is not successfully created", __PRETTY_FUNCTION__, op_root_path);
                 continue;
             }
             if(ver == CURRENT_VERSION) {
@@ -438,7 +438,7 @@ struct FuseClientContext {
 
     void update_contents(Node* node, const std::string& path, persistent::version_t ver) {
         int record_id = extract_number(path);
-        dbg_default_error("In {}, path: {}", __PRETTY_FUNCTION__, path);
+        // dbg_default_error("In {}, path: {}", __PRETTY_FUNCTION__, path);
         TimestampLogger::log(BEFORE_CAPI_GET,node_id,record_id,get_walltime());
         auto result = capi.get(path, ver, true);
         TimestampLogger::log(AFTER_CAPI_GET,node_id,record_id,get_walltime());
@@ -502,8 +502,8 @@ struct FuseClientContext {
      Node* get_file(const std::string& path) {
         Node* node = root->get(path);
         if (!node->file_valid) {
-            dbg_default_error("In {}, !node->data.file_valid", __PRETTY_FUNCTION__);
-            dbg_default_error("In {}, getting file contents: {}", __PRETTY_FUNCTION__, path);
+            // dbg_default_error("In {}, !node->data.file_valid", __PRETTY_FUNCTION__);
+            // dbg_default_error("In {}, getting file contents: {}", __PRETTY_FUNCTION__, path);
             // TODO op: path: should not include "/latest", see /pool1/k1, or /version
             auto new_path = path.substr(LATEST_PREFIX_SIZE);
             update_contents(node, new_path, CURRENT_VERSION);

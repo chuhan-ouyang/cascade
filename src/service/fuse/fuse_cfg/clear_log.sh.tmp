@@ -1,2 +1,3 @@
 rm -rf .plog;rm -rf ./*.log;
+./umount.sh
 clear
