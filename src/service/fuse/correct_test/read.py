@@ -31,7 +31,7 @@ from util import (
     wait_for_mount,
 )
 
-def read_files_in_directory(relative_dir):
+def compare_files_contents_in_dir(relative_dir, expected_contents):
     start_directory = os.path.join(os.getcwd(), relative_dir)
     file_contents_dict = {}
 
@@ -44,8 +44,9 @@ def read_files_in_directory(relative_dir):
             relative_path = os.path.relpath(file_path, start_directory)
             with open(file_path, 'r') as f:
                 file_contents = f.read()
-                file_contents_dict[relative_path] = file_contents
-
+                if (file_contents != expected_contents[relative_path]):
+                    print(f"Failed Read, Pathname: {relative_path},\n Expected: {expected_contents[relative_path]},\n Actual: {file_contents}")
+                assert file_contents == expected_contents[relative_path], "Failed Read"
     return file_contents_dict
 
 def append_expected_contents(expected_contents):
@@ -78,10 +79,7 @@ def test_read():
     append_expected_contents(expected_contents)
 
     base_directory = "test"
-    actual_contents = read_files_in_directory(base_directory)
-    json_actual = json.dumps(actual_contents, sort_keys=True)
-    json_expected = json.dumps(expected_contents, sort_keys=True)
-    assert json_expected == json_actual, "File content dictionaries do not match."
+    compare_files_contents_in_dir(base_directory, expected_contents)
     print("----------- PASSED TEST READ -----------")
     return
 

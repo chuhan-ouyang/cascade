@@ -100,14 +100,14 @@ def fuse_mount():
     time.sleep(20)
     
     if process1.returncode == 0:
-        process2 = subprocess.Popen(["./cascade_fuse_client_hl test -s"], shell=True)
+        process2 = subprocess.Popen(["./cascade_fuse_client_hl test"], shell=True)
         process2.wait()  
         if process2.returncode == 0:
-            print("Both commands executed successfully.")
+            print("mkdir, ./cascade_fuse_client_hl test finished")
         else:
-            print("Error executing the second command.")
+            print("Error ./cascade_fuse_client_hl test")
     else:
-        print("Error creating the directory.")
+        print("Error mkdir")
 
 def main(argv):
     cascade_process = multiprocessing.Process(target=initial_setup)
@@ -130,7 +130,7 @@ def main(argv):
     read_process.join()
     time.sleep(20)
     
-    write_process = multiprocessing.Process(target=write.main)
+    write_process = multiprocessing.Process(target=write.write_test)
     write_process.start()
     write_process.join()
     time.sleep(20)

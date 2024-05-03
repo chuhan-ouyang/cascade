@@ -16,6 +16,7 @@ import time
 from contextlib import contextmanager
 from os.path import join as pjoin
 from tempfile import NamedTemporaryFile
+from read import *
 
 from util import (
     base_cmdline,
@@ -30,22 +31,22 @@ from util import (
     wait_for_mount,
 )
 
-def read_files_in_directory(relative_dir):
-    start_directory = os.path.join(os.getcwd(), relative_dir)
-    file_contents_dict = {}
+# def read_files_in_directory(relative_dir, expected_contents):
+#     start_directory = os.path.join(os.getcwd(), relative_dir)
+#     file_contents_dict = {}
 
-    for root, dirs, files in os.walk(start_directory):
-        # Skip directories that start with '.'
-        dirs[:] = [d for d in dirs if not d.startswith('.')]
+#     for root, dirs, files in os.walk(start_directory):
+#         # Skip directories that start with '.'
+#         dirs[:] = [d for d in dirs if not d.startswith('.')]
 
-        for file in files:
-            file_path = os.path.join(root, file)
-            relative_path = os.path.relpath(file_path, start_directory)
-            with open(file_path, 'r') as f:
-                file_contents = f.read()
-                file_contents_dict[relative_path] = file_contents
+#         for file in files:
+#             file_path = os.path.join(root, file)
+#             relative_path = os.path.relpath(file_path, start_directory)
+#             with open(file_path, 'r') as f:
+#                 file_contents = f.read()
+#                 file_contents_dict[relative_path] = file_contents
 
-    return file_contents_dict
+#     return file_contents_dict
 
 # Create a new file in an object pool directory
 def write_new():
@@ -108,12 +109,11 @@ def test_write():
     append_expected_contents(expected_contents)
 
     base_directory = "test"
-    actual_contents = read_files_in_directory(base_directory)
-    assert expected_contents == actual_contents, "File content dictionaries do not match."
+    compare_files_contents_in_dir(base_directory, expected_contents)
     print("----------- PASSED TEST WRITE -----------")
     return
 
-def main(argv):
+def write_test():
     write_new()
     modify()
     append()
@@ -121,4 +121,4 @@ def main(argv):
     return
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    write_test()

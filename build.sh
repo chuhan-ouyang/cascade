@@ -66,7 +66,7 @@ if [[ $1 == "Clean" ]]; then
 fi
 
 build_type=$1
-install_prefix="/usr/local"
+install_prefix="/root/opt-dev"
 cmake_defs="-DCMAKE_BUILD_TYPE=${build_type} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_INSTALL_PREFIX=${install_prefix} -Dpybind11_DIR=`pybind11-config --cmakedir`"
 build_path="build-${build_type}"
 
