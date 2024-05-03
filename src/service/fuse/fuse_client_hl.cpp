@@ -147,19 +147,23 @@ static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
     if(node->data.flag & DIR_FLAG) {
         return -ENOTSUP;
     }
-    if(fi->flags & O_TRUNC) {
-        // TODO: data type change
-        node->mutex.lock();
-        node->data.bytes = nullptr;
-        node->data.size = 0;
-        node->mutex.unlock();
-    }
     if((fi->flags & O_ACCMODE) == O_RDONLY) {
         dbg_default_error("Entered {}, path: {}, before read lock", __PRETTY_FUNCTION__, path);
         node->mutex.lock_shared();
         dbg_default_error("Entered {}, path: {}, after read lock", __PRETTY_FUNCTION__, path);
-        return 0;
-    }
+    } else if((fi->flags & O_ACCMODE) == O_WRONLY || (fi->flags & O_ACCMODE) == O_RDWR) {
+        dbg_default_error("Entered {}, path: {}, before write lock", __PRETTY_FUNCTION__, path);
+        node->mutex.lock();
+        dbg_default_error("Entered {}, path: {}, after write lock", __PRETTY_FUNCTION__, path);
+    } else if ((fi->flags & O_ACCMODE) == O_TRUNC) {
+        dbg_default_error("Entered {}, path: {}, O_TRUNC: before write lock", __PRETTY_FUNCTION__, path);
+        node->mutex.lock();
+        dbg_default_error("Entered {}, path: {}, O_TRUNC: after write lock", __PRETTY_FUNCTION__, path);
+    } else if ((fi->flags & O_ACCMODE) == O_APPEND) {
+        dbg_default_error("Entered {}, path: {}, O_APPEND: before write lock", __PRETTY_FUNCTION__, path);
+        node->mutex.lock();
+        dbg_default_error("Entered {}, path: {}, O_APPEND: after write lock", __PRETTY_FUNCTION__, path);
+    } 
     node->file_valid = true;
     fi->fh = reinterpret_cast<uint64_t>(node);
     dbg_default_debug("Exited {}", __PRETTY_FUNCTION__);
@@ -224,7 +228,7 @@ static void cascade_fs_free_buf(void* buf) {
 
 static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
 			   size_t size, off_t offset, struct fuse_file_info *fi, void (**free_ptr)(void*)) {
-    dbg_default_debug("Entered {}, with path: {}", __PRETTY_FUNCTION__, path);
+    dbg_default_error("Entered {}, with path: {}", __PRETTY_FUNCTION__, path);
     struct fuse_bufvec *src;
     src = (fuse_bufvec*)malloc(sizeof(struct fuse_bufvec));
     if (src == NULL) return -ENOMEM;
@@ -245,6 +249,8 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
 
     auto& bytes = node->data.bytes;
     size_t len = node->data.size;
+    dbg_default_error("Current node size: {}", node->data.size);
+    dbg_default_error("Read_buf_fptr size: {}", size);
     if((size_t)offset < len) {
         if(offset + size > len) {
             size = len - offset;
@@ -266,7 +272,7 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
         std::string logger_path = "/root/workspace/cascade/build-Release/src/service/fuse/fuse_cfg/n4/fuse_client_logger.csv";
         TimestampLogger::flush(logger_path, false);
     }
-    dbg_default_debug("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
+    dbg_default_error("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
     return size;
 }
 
@@ -280,19 +286,12 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     if(node->data.flag & DIR_FLAG || !node->data.writeable) {  
         return -ENOTSUP;
     }
-    dbg_default_error("Entered {}, path: {}, before write lock", __PRETTY_FUNCTION__, path);
-    node->mutex.lock();
-    dbg_default_error("Entered {}, path: {}, after write lock", __PRETTY_FUNCTION__, path);
-    // dbg_default_debug("fs write, set write lock, path: {}", path);
     size_t new_size = std::max(node->data.size, offset + size);
     std::shared_ptr<uint8_t[]> new_bytes(new uint8_t[new_size]);
     memcpy(new_bytes.get(), node->data.bytes.get(), std::min(static_cast<size_t>(offset), node->data.size));
     node->data.bytes = new_bytes;
     node->data.size = new_size;
     memcpy(node->data.bytes.get() + offset, buf, size);
-    dbg_default_error("Entered {}, path: {}, before write unlock", __PRETTY_FUNCTION__, path);
-    node->mutex.unlock();
-    dbg_default_error("Entered {}, path: {}, after write unlock", __PRETTY_FUNCTION__, path);
     dbg_default_debug("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
     return size;
 }
@@ -308,17 +307,28 @@ static int cascade_fs_flush(const char* path, struct fuse_file_info* fi) {
 static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
     // dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path, true);
+    if(node == nullptr) {
+        dbg_default_debug("NULLPTR NODE");
+        return -ENOENT;
+    }
     node->file_valid = false;
     if((fi->flags & O_ACCMODE) == O_RDONLY) {
         dbg_default_error("Entered {}, path: {}, before read unlock", __PRETTY_FUNCTION__, path);
         node->mutex.unlock_shared();
         dbg_default_error("Entered {}, path: {}, after read unlock", __PRETTY_FUNCTION__, path);
-        // dbg_default_debug("fs release, read unlock, path: {}", path);
         return 0;
-    }
-    if(node == nullptr) {
-        dbg_default_debug("NULLPTR NODE");
-        return -ENOENT;
+    } else if((fi->flags & O_ACCMODE) == O_WRONLY || (fi->flags & O_ACCMODE) == O_RDWR) {
+        dbg_default_error("Entered {}, path: {}, before write unlock", __PRETTY_FUNCTION__, path);
+        node->mutex.unlock();
+        dbg_default_error("Entered {}, path: {}, after write unlock", __PRETTY_FUNCTION__, path);
+    } else if((fi->flags & O_ACCMODE) == O_TRUNC) {
+        dbg_default_error("Entered {}, path: {}, OTRUNC: before write unlock", __PRETTY_FUNCTION__, path);
+        node->mutex.unlock();
+        dbg_default_error("Entered {}, path: {}, OTRUNC: after write unlock", __PRETTY_FUNCTION__, path);
+    } else if((fi->flags & O_ACCMODE) == O_APPEND) {
+        dbg_default_error("Entered {}, path: {}, O_APPEND: before write unlock", __PRETTY_FUNCTION__, path);
+        node->mutex.unlock();
+        dbg_default_error("Entered {}, path: {}, O_APPEND: after write unlock", __PRETTY_FUNCTION__, path);
     }
     if(node->data.flag & DIR_FLAG || !node->data.writeable) {
         dbg_default_debug("Writeable {}", node->data.writeable);
@@ -358,14 +368,11 @@ static int cascade_fs_unlink(const char* path) {
     if(node->data.flag & DIR_FLAG) {
         return -EISDIR;
     }
-    // TODO check open
-
-    // remove
-    // TODO: data type change
-    node->mutex.lock();
+    // TODO: Check if we need to lock() and unlock()
+    // node->mutex.lock();
     node->data.bytes = nullptr;
     node->data.size = 0;
-    node->mutex.unlock();
+    // node->mutex.unlock();
     // auto result = capi.remove(key);
     // node->parent->children.erase(node->label);
     // delete node;
@@ -398,7 +405,6 @@ static int cascade_fs_rmdir(const char* path) {
 
 static int cascade_fs_truncate(const char* path, off_t size,
                                struct fuse_file_info* fi) {
-    // dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path, true);
     if(node == nullptr) {
         return -ENOENT;
@@ -406,14 +412,9 @@ static int cascade_fs_truncate(const char* path, off_t size,
     if(node->data.flag & DIR_FLAG || !node->data.writeable) {
         return -EINVAL;
     }
-    // node->data.bytes.resize(size, 0);
-    // TODO: data type change
-    node->mutex.lock();
     node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[size]);
     node->data.size = size;
-    node->mutex.unlock();
     int res = fcc()->put_to_capi(node);
-    // dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return res;
 }
 
