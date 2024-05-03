@@ -155,6 +155,24 @@ static int cascade_fs_create(const char* path, mode_t mode,
     dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return res;
 }
+    /** 
+    Notes: 
+    Works only on 64 bit systems as off_t is converted to uint64
+    Use Whence SEEK_DATA to seek by time as lseek isn't used for anything else
+    Changes the Global Instance of the File in Cascade to the expected result
+
+    Returns the first instance in time before or equal to the offset. 
+    Ex: Files at time 5, 8, 9
+    Seek 5 -> returns 5
+    Seek 7 -> return 5
+    Seek 10 -> returns 9
+    Seek 4 -> failure
+     *  @fn create a new node based on the path if the node doesn't exist or update the existing node's data
+     *  @param Path is the full path name of the final node to set
+     *  @param intermediate_data is the parents' data of final node to set if parent nodes don't exist
+     *  @param whence is the final node's data to set in the tree 
+     *  @return off_t Sets the Offset time we are looking For. 
+    */
 
 static off_t cascade_fs_lseek( const char *path, off_t off, int whence, struct fuse_file_info *fi){
     dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
@@ -166,7 +184,7 @@ static off_t cascade_fs_lseek( const char *path, off_t off, int whence, struct f
     // if whence Matches TSEEK
     if (whence == SEEK_DATA){
         const std::string pathString(path);
-        auto new_path = pathString.substr(7);
+        auto new_path = pathString.substr(7); // Need to Do this for Latest
         dbg_default_error("new_path {}, uncasted {} casted {}", new_path, off, (uint64_t) off);
         // Node* node, const std::string& path, uint64_t ts_us)
         uint64_t res = (uint64_t) off;

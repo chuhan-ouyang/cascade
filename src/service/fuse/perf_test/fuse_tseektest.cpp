@@ -28,30 +28,28 @@ std::vector<uint64_t> readCSV() {
     }
     return data;
 }
+
 /**
  * Put to the key /pool/read_test for a variable size bytes object filled with "1"
- * Usage: ./fuse_perftest_put -s <kb_size> -r <runs>
+ * Usage: ./fuse_perftest_put -s <indexLookup> -r <timeOffsetFromNode>
 */
 int main (int argc, char* argv[]) {
     if (argc < 5) {
         std::cerr << "Usage: " << argv[0] << " <-s> <file size in KB> <-n> <num runs>\n";
         return 1;
     }
-    uint32_t kb_size = 0, num_runs = 0;
+    uint32_t kb_size = 0, offset = 0;
     int index = 0;
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
         if (arg == "-s" && i + 1 < argc) {
             index = std::atoi(argv[++i]);
         } else if (arg == "-n" && i + 1 < argc) {
-            num_runs = std::atoi(argv[++i]);
+            offset = std::atoi(argv[++i]);
         }
     }
     size_t byte_size = 1024;
     std::vector<uint64_t> timeStampRuns = readCSV();
-    uint64_t firstTime = timeStampRuns.at(0);
-    uint64_t halfway  = timeStampRuns.at(num_runs/2);
-    uint64_t lastTime = timeStampRuns.at(num_runs-1);
 
     for (uint64_t timeStamp : timeStampRuns){
         std::cout << "Time: " << timeStamp <<'\n';
@@ -63,7 +61,7 @@ int main (int argc, char* argv[]) {
         return 1;
     }
 
-    uint64_t timeOffset = timeStampRuns.at(index);
+    uint64_t timeOffset = timeStampRuns.at(index) + offset;
     // Move the file pointer to the desired offset
     off_t newPosition = lseek(file, timeOffset, SEEK_DATA);
     if (newPosition < 0) {
