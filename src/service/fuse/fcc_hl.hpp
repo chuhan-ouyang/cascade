@@ -431,6 +431,7 @@ struct FuseClientContext {
     }
 
     void update_contents(Node* node, const std::string& path, persistent::version_t ver) {
+        dbg_default_trace("In {}, path: {}", __PRETTY_FUNCTION__, path);
         int record_id = extract_number(path);
         TimestampLogger::log(BEFORE_CAPI_GET,node_id,record_id,get_walltime());
         auto result = capi.get(path, ver, true);

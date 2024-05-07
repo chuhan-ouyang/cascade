@@ -80,8 +80,7 @@ static int cascade_fs_getattr(const char* path, struct stat* stbuf,
     return res;
 }
 
-// TODO :( invalid pointer dumped?? somehow cascade replys needs to be stored in a variable before
-// result.get() ... maybe it somehow dangles?
+
 static int cascade_fs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
                               off_t offset, struct fuse_file_info* fi,
                               enum fuse_readdir_flags flags) {
@@ -204,9 +203,8 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
     if(node->data.flag & DIR_FLAG) {
         return -EACCES;
     }
-    // node->mutex.lock_shared();
     src->buf[0].flags = FUSE_BUF_FD_SEEK;
-	src->buf[0].pos = offset;
+	  src->buf[0].pos = offset;
 
     auto& bytes = node->data.bytes;
     size_t len = node->data.size;
