@@ -62,11 +62,7 @@ static FuseClientContext* fcc() {
 
 static void* cascade_fs_init(struct fuse_conn_info* conn,
                              struct fuse_config* cfg) {
-    // TODO why read conf_layout_json_layout?
-    // TODO don't like no control over derecho config
-    // // dbg_default_error("Entered {}", __PRETTY_FUNCTION__);
     void* res = new FuseClientContext(options.update_interval, options.by_version);
-    // // dbg_default_error("Exited {}", __PRETTY_FUNCTION__);
     return res;
 }
 
@@ -76,26 +72,11 @@ static void cascade_fs_destroy(void* private_data) {
 
 static int cascade_fs_getattr(const char* path, struct stat* stbuf,
                               struct fuse_file_info* fi) {
-    dbg_default_debug("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     memset(stbuf, 0, sizeof(struct stat));
-    // test flags when entering getattr
-    // if((fi->flags & O_ACCMODE) == O_RDONLY) {
-    //     dbg_default_debug("In {}, Got Flag: O_RDONLY", __PRETTY_FUNCTION__);
-    // } else if((fi->flags & O_ACCMODE) == O_WRONLY) {
-    //     dbg_default_debug("In {}, Got Flag: O_WRONLY", __PRETTY_FUNCTION__);
-    // } else if((fi->flags & O_ACCMODE) == O_RDWR) {
-    //     dbg_default_debug("In {}, Got Flag: O_RDWR", __PRETTY_FUNCTION__);
-    // } else {
-    //     dbg_default_debug("In {}, Got Nog Flag", __PRETTY_FUNCTION__);
-    // }
-    // off_t original_size = stbuf->st_size;
-    // dbg_default_debug("In {}, original_size: {}", __PRETTY_FUNCTION__, original_size);
     int res = fcc()->get_attr(path, stbuf);
-    // dbg_default_debug("In {}, after get_stat size: {}", __PRETTY_FUNCTION__, stbuf->st_size);
     if (res == -ENOENT) {
         return -ENOENT;
     }
-    dbg_default_debug("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return res;
 }
 
@@ -104,7 +85,6 @@ static int cascade_fs_getattr(const char* path, struct stat* stbuf,
 static int cascade_fs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
                               off_t offset, struct fuse_file_info* fi,
                               enum fuse_readdir_flags flags) {
-    // // dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get_dir(path);
     if(node == nullptr) {
         return -ENOENT;
@@ -116,13 +96,11 @@ static int cascade_fs_readdir(const char* path, void* buf, fuse_fill_dir_t fille
             break;
         }
     }
-    // // dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return 0;
 }
 
 static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
     // TODO check O_ACCMODE
-    dbg_default_debug("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path, true);
     if (node == nullptr) {
         dbg_default_debug("In {} fs_open node is nulllptr", __PRETTY_FUNCTION__);
@@ -135,7 +113,6 @@ static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
         if(op_root == nullptr) {
             return -EACCES; // TODO: Add informative error message
         }
-        dbg_default_debug("In {} fi->flags & O_CREAT && node == nullptr", __PRETTY_FUNCTION__);
         node = fcc()->add_op_key(path, op_root->data.objp_name);
         if(node == nullptr) {
             return -ENOTSUP;
@@ -148,30 +125,23 @@ static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
         return -ENOTSUP;
     }
     if(fi->flags & O_TRUNC) {
-        // TODO: data type change
         node->mutex.lock();
         node->data.bytes = nullptr;
         node->data.size = 0;
         node->mutex.unlock();
     }
     if((fi->flags & O_ACCMODE) == O_RDONLY) {
-        dbg_default_error("Entered {}, path: {}, before read lock", __PRETTY_FUNCTION__, path);
         node->mutex.lock_shared();
-        dbg_default_error("Entered {}, path: {}, after read lock", __PRETTY_FUNCTION__, path);
-        return 0;
     }
     node->file_valid = true;
     fi->fh = reinterpret_cast<uint64_t>(node);
-    dbg_default_debug("Exited {}", __PRETTY_FUNCTION__);
     return 0;
 }
 
 static int cascade_fs_create(const char* path, mode_t mode,
                              struct fuse_file_info* fi) {
     // TODO check mode ? currently ignores
-    // dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     int res = cascade_fs_open(path, fi);
-    // dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return res;
 }
 
@@ -209,7 +179,6 @@ static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offse
 static void cascade_fs_free_buf(void* buf) {
     uint8_t* raw_ptr = static_cast<uint8_t*>(buf);
     auto& vec = fcc()->fileptrs_in_use;
-    // std::cout << "\nBefore size: " << vec.size() << std::endl;
     auto it = std::find_if(vec.begin(), vec.end(),
                            [raw_ptr](const std::shared_ptr<uint8_t[]>& ptr) {
                                return ptr.get() == raw_ptr;
@@ -218,13 +187,10 @@ static void cascade_fs_free_buf(void* buf) {
     if (it != vec.end()) {
         vec.erase(it);
     }
-    // std::cout << "\nAfter size: " << vec.size() << std::endl;
-    // std::cout << "Removed buf from fileptrs_in_use list" << std::endl;
 }
 
 static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
 			   size_t size, off_t offset, struct fuse_file_info *fi, void (**free_ptr)(void*)) {
-    dbg_default_debug("Entered {}, with path: {}", __PRETTY_FUNCTION__, path);
     struct fuse_bufvec *src;
     src = (fuse_bufvec*)malloc(sizeof(struct fuse_bufvec));
     if (src == NULL) return -ENOMEM;
@@ -239,7 +205,6 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
         return -EACCES;
     }
     // node->mutex.lock_shared();
-    // dbg_default_debug("fs read, set read lock, path: {}", path);
     src->buf[0].flags = FUSE_BUF_FD_SEEK;
 	src->buf[0].pos = offset;
 
@@ -266,13 +231,11 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
         std::string logger_path = "/root/workspace/cascade/build-Release/src/service/fuse/fuse_cfg/n4/fuse_client_logger.csv";
         TimestampLogger::flush(logger_path, false);
     }
-    dbg_default_debug("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
     return size;
 }
 
 static int cascade_fs_write(const char* path, const char* buf, size_t size,
                             off_t offset, struct fuse_file_info* fi) {
-    dbg_default_debug("Entered {}, with path: {}", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path, true);
     if(node == nullptr) {
         return -ENOENT;
@@ -280,20 +243,14 @@ static int cascade_fs_write(const char* path, const char* buf, size_t size,
     if(node->data.flag & DIR_FLAG || !node->data.writeable) {  
         return -ENOTSUP;
     }
-    dbg_default_error("Entered {}, path: {}, before write lock", __PRETTY_FUNCTION__, path);
     node->mutex.lock();
-    dbg_default_error("Entered {}, path: {}, after write lock", __PRETTY_FUNCTION__, path);
-    // dbg_default_debug("fs write, set write lock, path: {}", path);
     size_t new_size = std::max(node->data.size, offset + size);
     std::shared_ptr<uint8_t[]> new_bytes(new uint8_t[new_size]);
     memcpy(new_bytes.get(), node->data.bytes.get(), std::min(static_cast<size_t>(offset), node->data.size));
     node->data.bytes = new_bytes;
     node->data.size = new_size;
     memcpy(node->data.bytes.get() + offset, buf, size);
-    dbg_default_error("Entered {}, path: {}, before write unlock", __PRETTY_FUNCTION__, path);
     node->mutex.unlock();
-    dbg_default_error("Entered {}, path: {}, after write unlock", __PRETTY_FUNCTION__, path);
-    dbg_default_debug("Exited {}, with path: {}", __PRETTY_FUNCTION__, path);
     return size;
 }
 
@@ -306,32 +263,24 @@ static int cascade_fs_flush(const char* path, struct fuse_file_info* fi) {
 */
 
 static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
-    // dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path, true);
-    node->file_valid = false;
-    if((fi->flags & O_ACCMODE) == O_RDONLY) {
-        dbg_default_error("Entered {}, path: {}, before read unlock", __PRETTY_FUNCTION__, path);
-        node->mutex.unlock_shared();
-        dbg_default_error("Entered {}, path: {}, after read unlock", __PRETTY_FUNCTION__, path);
-        // dbg_default_debug("fs release, read unlock, path: {}", path);
-        return 0;
-    }
     if(node == nullptr) {
         dbg_default_debug("NULLPTR NODE");
         return -ENOENT;
     }
+    node->file_valid = false;
+    if((fi->flags & O_ACCMODE) == O_RDONLY) {
+        node->mutex.unlock_shared();
+        return 0;
+    }
     if(node->data.flag & DIR_FLAG || !node->data.writeable) {
-        dbg_default_debug("Writeable {}", node->data.writeable);
         return -ENOTSUP;
     }
     int res = fcc()->put_to_capi(node);
-    // dbg_default_debug("fs release, write unlock, path: {}", path);
-    // dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return res;
 }
 
 static int cascade_fs_mkdir(const char* path, mode_t mode) {
-    // dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     if(fcc()->get(path, true)) {
         return -EEXIST;
     }
@@ -344,13 +293,10 @@ static int cascade_fs_mkdir(const char* path, mode_t mode) {
         fcc()->local_latest_dirs.insert(path);
         // TODO err if nullptr
     }
-    // dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return 0;
 }
 
 static int cascade_fs_unlink(const char* path) {
-    // dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
-    // return -ENOTSUP;
     auto node = fcc()->get(path, true);
     if(node == nullptr) {
         return -ENOENT;
@@ -359,9 +305,6 @@ static int cascade_fs_unlink(const char* path) {
         return -EISDIR;
     }
     // TODO check open
-
-    // remove
-    // TODO: data type change
     node->mutex.lock();
     node->data.bytes = nullptr;
     node->data.size = 0;
@@ -369,7 +312,6 @@ static int cascade_fs_unlink(const char* path) {
     // auto result = capi.remove(key);
     // node->parent->children.erase(node->label);
     // delete node;
-    // dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return 0;
 }
 
@@ -398,7 +340,6 @@ static int cascade_fs_rmdir(const char* path) {
 
 static int cascade_fs_truncate(const char* path, off_t size,
                                struct fuse_file_info* fi) {
-    // dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get(path, true);
     if(node == nullptr) {
         return -ENOENT;
@@ -407,13 +348,11 @@ static int cascade_fs_truncate(const char* path, off_t size,
         return -EINVAL;
     }
     // node->data.bytes.resize(size, 0);
-    // TODO: data type change
     node->mutex.lock();
     node->data.bytes = std::shared_ptr<uint8_t[]>(new uint8_t[size]);
     node->data.size = size;
     node->mutex.unlock();
     int res = fcc()->put_to_capi(node);
-    // dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return res;
 }
 
@@ -470,7 +409,6 @@ static int cascade_fs_setxattr(const char* path, const char* name, const char* v
 
 static int cascade_fs_getxattr(const char* path, const char* name, char* value,
                                size_t size) {
-    // dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     // TODO need to first apt get-install attr
     if(strcmp(path, fcc()->ROOT.c_str()) == 0) {
         if(strcmp(name, "user.cascade.largest_known_version") == 0) {
@@ -478,12 +416,10 @@ static int cascade_fs_getxattr(const char* path, const char* name, char* value,
             return set_buffer(value, size, v.c_str());
         }
     }
-    // dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return -ENODATA;
 }
 
 static int cascade_fs_listxattr(const char* path, char* list, size_t size) {
-    // dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     // TODO lesson learned :(. returned 0 instead of length. check over all return types
     if(strcmp(path, fcc()->ROOT.c_str()) == 0) {
         // ^ 1hr+ bug
@@ -499,7 +435,6 @@ static int cascade_fs_listxattr(const char* path, char* list, size_t size) {
     }
     const char empty[] = "";
     int res = set_buffer(list, size, empty, 0);
-    // dbg_default_error("Exited {}, path {} ", __PRETTY_FUNCTION__, path);
     return res;
 }
 

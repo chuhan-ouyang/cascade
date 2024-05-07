@@ -152,7 +152,6 @@ struct FuseClientContext {
 
     // TODO op: add documentation
     Node* add_full_op_dir(const fs::path& path, const std::string& objp_name) {
-        dbg_default_trace("Entered: {}", __PRETTY_FUNCTION__);
         // int, data
         Node* path_tree_node = root->set(path, NodeData(OP_PREFIX_DIR), NodeData(OP_PATH_DIR, objp_name));
         // TODO op: path should not contain /latest
@@ -172,10 +171,6 @@ struct FuseClientContext {
     Node* add_op_key(const fs::path& path, const std::string& op_path) {
         // invariant: assumes op_root already exists
         Node* node_ptr = root->set(path, NodeData(KEY_DIR, op_path), NodeData(KEY_FILE, op_path));
-        // TODO op: check that op_path is correct
-        if (node_ptr->data.objp_name.empty()) {
-            dbg_default_trace("In {}, path: {}, op_path is empty: {}, node's objp_name is empty", __PRETTY_FUNCTION__, path, op_path.empty());
-        }
         node_ptr->data.writeable = true;
         return node_ptr;
     }
@@ -408,7 +403,6 @@ struct FuseClientContext {
             for (auto& reply_future : result.get()) {
                 size_t size = reply_future.second.get();
                 stbuf->st_size = std::max(size, (size_t)BLOB_SIZE_OFFSET) - BLOB_SIZE_OFFSET;
-                dbg_default_debug("Path: {}, size is : {}", path, size);
                 break; 
             }
         }
@@ -438,7 +432,6 @@ struct FuseClientContext {
 
     void update_contents(Node* node, const std::string& path, persistent::version_t ver) {
         int record_id = extract_number(path);
-        // dbg_default_error("In {}, path: {}", __PRETTY_FUNCTION__, path);
         TimestampLogger::log(BEFORE_CAPI_GET,node_id,record_id,get_walltime());
         auto result = capi.get(path, ver, true);
         TimestampLogger::log(AFTER_CAPI_GET,node_id,record_id,get_walltime());
@@ -457,7 +450,6 @@ struct FuseClientContext {
 
             node->data.bytes.reset((uint8_t*)blob.bytes);
             node->data.size = blob.size;
-            // dbg_default_debug("In {}, path: {}, actual size: {}", __PRETTY_FUNCTION__, path, node->data.size);
             node->data.timestamp = reply.timestamp_us;
             return;
         }
@@ -502,8 +494,6 @@ struct FuseClientContext {
      Node* get_file(const std::string& path) {
         Node* node = root->get(path);
         if (!node->file_valid) {
-            // dbg_default_error("In {}, !node->data.file_valid", __PRETTY_FUNCTION__);
-            // dbg_default_error("In {}, getting file contents: {}", __PRETTY_FUNCTION__, path);
             // TODO op: path: should not include "/latest", see /pool1/k1, or /version
             auto new_path = path.substr(LATEST_PREFIX_SIZE);
             update_contents(node, new_path, CURRENT_VERSION);
@@ -522,11 +512,9 @@ struct FuseClientContext {
         // std::cout << "\nEntered fcc_hl:get: " << path << std::endl;
         Node* node = root->get(path);
         if (node == nullptr) {
-            dbg_default_debug("In {}, cc_hl:Node is nullptr, path: {}", __PRETTY_FUNCTION__, path);
             return node;
         }
         if (node->data.flag == KEY_FILE && fill_contents) {
-            dbg_default_trace("In {}, call get_file with path: {}", __PRETTY_FUNCTION__, path);
             get_file(path);
         }
         // std::cout << "\nExited fcc_hl:get: " << path << std::endl;
@@ -536,7 +524,6 @@ struct FuseClientContext {
 
     // TODO: add documentation for this function
     void update_dir(Node* node, const fs::path& prefix) {
-        dbg_default_trace("Entered {}", __PRETTY_FUNCTION__);
         if (node == nullptr) {
             dbg_default_trace("In {} node is nullptr", __PRETTY_FUNCTION__);
         }

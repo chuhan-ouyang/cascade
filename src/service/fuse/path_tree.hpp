@@ -114,7 +114,7 @@ struct PathTree {
 
     /** 
      *  @fn create a new node based on the path if the node doesn't exist or update the existing node's data
-     *  @tparam path is the full path name of the final node to set
+     *  @param path is the full path name of the final node to set
      *  @tparam intermediate_data is the parents' data of final node to set if parent nodes don't exist
      *  @tparam data is the final node's data to set in the tree 
      *  @return Will return a node ptr no matter if it is newly created or already exists
@@ -143,7 +143,6 @@ struct PathTree {
             }
         }
         if(!created_new) {
-            dbg_default_trace("In {}, !created_new at path: {}", __PRETTY_FUNCTION__, path);
             // return nullptr;
         }
         cur->data = data;
