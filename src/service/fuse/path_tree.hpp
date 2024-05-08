@@ -23,33 +23,42 @@ enum NodeFlag : uint32_t {
     SNAPSHOT_TIME_DIR = 1 << 9,
 };
 
+// TODO: make PathTreeNode cache aligned
+// invariant: object T is a fixed-size length variable
 template <typename T>
 struct PathTree {
     // last path of the full path name
     // Ex. If the full path name is /pool1/k1, its label is k1
     std::string label;
+    char label_padding[64 - sizeof(std::string)]; 
+
     T data;
-    std::atomic<int> reader_count;
-    std::atomic<int> writer_count;
+    char data_padding[64 - sizeof(T) % 64]; 
+
+    std::shared_mutex mutex;
+    char mutex_padding[64 - sizeof(std::shared_mutex) % 64]; 
+    
+    bool file_valid = false;
+    char bool_padding[64 - sizeof(bool)];
 
     PathTree<T>* parent;
-    std::unordered_map<std::string, PathTree<T>*> children;
+    char parent_padding[64 - sizeof(PathTree<T>*) % 64];
+
+    std::unordered_map<std::string, PathTree<T>*> children; 
+    // std::unordered_map<std::string, std::shared_ptr<PathTree<T>>> children;
+
+    char children_padding[64 - sizeof(std::unordered_map<std::string, PathTree<T>*>) % 64];
+
     // std::string objp_subdir;
+    PathTree() {}
 
     PathTree(std::string label, T data, PathTree<T>* parent)
-            : label(label), data(data), parent(parent) {
-                reader_count.store(0);
-                writer_count.store(0);
-            }
-    PathTree(std::string label, PathTree<T>* parent, T data)
-            : label(label), parent(parent), data(data) {
-                reader_count.store(0);
-                writer_count.store(0);
-            }
-    PathTree(std::string label, T data) : PathTree(label, data, nullptr) {
-                reader_count.store(0);
-                writer_count.store(0);
-    }
+            : label(label), data(data), parent(parent) {}
+
+    // PathTree(std::string label, PathTree<T>* parent, T data)
+    //         : label(label), parent(parent), data(data) {}
+
+    PathTree(std::string label, T data) : PathTree(label, data, nullptr) {}
 
     ~PathTree() {
         for(auto& [k, v] : children) {
@@ -105,12 +114,12 @@ struct PathTree {
 
     /** 
      *  @fn create a new node based on the path if the node doesn't exist or update the existing node's data
-     *  @tparam path is the full path name of the final node to set
-     *  @tparam intermediate is the parents' data of final node to set if parent nodes don't exist
+     *  @param path is the full path name of the final node to set
+     *  @tparam intermediate_data is the parents' data of final node to set if parent nodes don't exist
      *  @tparam data is the final node's data to set in the tree 
      *  @return Will return a node ptr no matter if it is newly created or already exists
     */
-    PathTree<T>* set(const fs::path& path, T intermediate, T data) {
+    PathTree<T>* set(const fs::path& path, T intermediate_data, T data) {
         if(path.empty()) {
             return nullptr;
         }
@@ -126,7 +135,7 @@ struct PathTree {
             // Create directory if it is in the path but currently does not exist
             if(!cur->children.count(*it)) {
                 created_new = true;
-                PathTree<T>* next = new PathTree<T>(*it, cur, intermediate);
+                PathTree<T>* next = new PathTree<T>(*it, intermediate_data, cur);
                 cur->children.insert({*it, next});
                 cur = next;
             } else {
@@ -134,7 +143,6 @@ struct PathTree {
             }
         }
         if(!created_new) {
-            dbg_default_trace("In {}, !created_new at path: {}", __PRETTY_FUNCTION__, path);
             // return nullptr;
         }
         cur->data = data;

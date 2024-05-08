@@ -1,0 +1,2 @@
+mkdir test
+./cascade_fuse_client_hl -f test
