@@ -52,7 +52,7 @@ void read_test(uint32_t file_size, int index, const std::filesystem::path& path,
 }
 /**
  * Put to the key /pool/read_test for a variable size bytes object filled with "1"
- * Usage: ./fuse_perftest_put -s <indexLookup> -r <timeOffsetFromNode>
+ * Usage: ./fuse_perftest_put -i <indexLookup> -o <timeOffsetFromNode>
 */
 int main (int argc, char* argv[]) {
     if (argc < 5) {
