@@ -72,7 +72,7 @@ int main (int argc, char* argv[]) {
             verify = true;
         }
     }
-    size_t byte_size = 512;
+    size_t byte_size = 1024;
     std::vector<uint64_t> timeStampRuns = readCSV();
 
     for (uint64_t timeStamp : timeStampRuns){

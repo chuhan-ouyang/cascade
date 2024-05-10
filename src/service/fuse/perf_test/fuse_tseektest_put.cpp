@@ -31,12 +31,10 @@ int main (int argc, char* argv[]) {
         std::cerr << "Usage: " << argv[0] << " <-s> <file size in KB> <-n> <num runs>\n";
         return 1;
     }
-    uint32_t kb_size = 0, num_runs = 0;
+    uint32_t kb_size = 1, num_runs = 0;
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
-        if (arg == "-s" && i + 1 < argc) {
-            kb_size = std::atoi(argv[++i]);
-        } else if (arg == "-n" && i + 1 < argc) {
+        if (arg == "-n" && i + 1 < argc) {
             num_runs = std::atoi(argv[++i]);
         }
     }
