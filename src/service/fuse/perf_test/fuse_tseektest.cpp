@@ -29,6 +29,27 @@ std::vector<uint64_t> readCSV() {
     return data;
 }
 
+void read_test(uint32_t file_size, int index, const std::filesystem::path& path, bool verify) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file) {
+        std::cerr << "File could not be opened for reading at " << path << ".\n";
+        return;
+    }
+    char *buffer = static_cast<char*>(malloc(file_size + 1));
+    if (!file.read(buffer, file_size)) {
+        file.close();
+        return;
+    }
+    file.close();
+    if (verify) {
+        std::cout << "Answer as Expected? " << buffer[0] << " INDEX: " << index <<'\n';
+        if (index == (buffer[0] - '0')){
+            std::cout << "TEST PASSED!" <<'\n';
+        }else{
+            std::cout << "TEST FAILED!" << '\n';
+        }
+    }
+}
 /**
  * Put to the key /pool/read_test for a variable size bytes object filled with "1"
  * Usage: ./fuse_perftest_put -s <indexLookup> -r <timeOffsetFromNode>
@@ -38,17 +59,20 @@ int main (int argc, char* argv[]) {
         std::cerr << "Usage: " << argv[0] << " <-s> <file size in KB> <-n> <num runs>\n";
         return 1;
     }
-    uint32_t kb_size = 0, offset = 0;
+    uint32_t offset = 0;
     int index = 0;
+    bool verify = false;
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
-        if (arg == "-s" && i + 1 < argc) {
+        if (arg == "-i" && i + 1 < argc) {
             index = std::atoi(argv[++i]);
-        } else if (arg == "-n" && i + 1 < argc) {
+        } else if (arg == "-o" && i + 1 < argc) {
             offset = std::atoi(argv[++i]);
+        }else if (arg == "-v") {
+            verify = true;
         }
     }
-    size_t byte_size = 1024;
+    size_t byte_size = 512;
     std::vector<uint64_t> timeStampRuns = readCSV();
 
     for (uint64_t timeStamp : timeStampRuns){
@@ -69,44 +93,7 @@ int main (int argc, char* argv[]) {
         close(file);
         return 1;
     }
-    // std::vector<char> buffer(byte_size);
-    // ssize_t bytesRead = read(file, buffer.data(), byte_size);
-    // if (bytesRead < 0) {
-    //     perror("Error reading from file");
-    //     close(file);
-    //     return 1;
-    // }
-    // for (int i= 0; i < byte_size; i++){
-    //     std::cout << buffer.at(i);
-    // }
-    // std::cout <<'\n';
     close(file);
-//    int SEEK_TIME = 10;
-//    off_t offset0 = lseek(file, 0, SEEK_TIME);
-//    if (offset0 == (off_t)-1) {
-//        printf("Error seeking the file.\n");
-//        close(file);
-//        return 1;
-//    }
-    // std::cout << "Offset Should be 0: " << offset0 <<'\n';
-
-    // off_t offset2 = lseek(file, firstTime, SEEK_TIME);
-    // if (offset2 == (off_t)-1) {
-    //     printf("Error seeking the file.\n");
-    //     close(file);
-    //     return 1;
-    // }
-    // std::cout << "Offset Should be 0: " << offset2 <<'\n';
-	
-// Get Time Before Offset
-// Find Time
-
-// Get Time At Offset
-// Find Final Time
-
-// Get Time after Offset
-    // for (auto& buffer : buffers) {
-    //     free(buffer);
-    // }
+    read_test(byte_size, index, filePath, verify);
     return 0;
 }
