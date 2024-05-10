@@ -75,9 +75,9 @@ int main (int argc, char* argv[]) {
     size_t byte_size = 1024;
     std::vector<uint64_t> timeStampRuns = readCSV();
 
-    for (uint64_t timeStamp : timeStampRuns){
-        std::cout << "Time: " << timeStamp <<'\n';
-    }
+    // for (uint64_t timeStamp : timeStampRuns){
+    //     std::cout << "Time: " << timeStamp <<'\n';
+    // }
     const char* filePath = "test/latest/pool/read_test";
     int file = open(filePath, O_RDWR);
     if (file < 0) {
