@@ -32,8 +32,8 @@ void record_timestamp(std::vector<std::chrono::nanoseconds> timestamps, std::str
 }
 
 void read_test(uint32_t file_size, uint32_t runs, const std::filesystem::path& path, bool verify) {
-    for (int i = 1; i <= runs; ++i) {
-        std::string file_name = "read_test" + std::to_string(i);
+    for (uint32_t i = 1; i <= runs; ++i) {
+        std::string file_name = "read_test";
         std::filesystem::path read_path = path / file_name;
         std::ifstream file(read_path, std::ios::binary);
         if (!file) {
@@ -68,7 +68,7 @@ void write_test(uint32_t file_size, uint32_t runs, const std::filesystem::path& 
         buffer[i] = '1';
     }
     std::vector<std::chrono::nanoseconds> timestamps;
-    for (int i = 1; i <= runs; ++i) {
+    for (uint32_t i = 1; i <= runs; ++i) {
         std::ofstream file(write_path, std::ios::binary);
         if (!file) {
             std::cerr << "File could not be opened at " << write_path << ".\n";
