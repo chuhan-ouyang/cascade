@@ -199,7 +199,7 @@ static off_t cascade_fs_lseek( const char *path, off_t off, int whence, struct f
     if(node == nullptr) {
         return -ENOENT;
     }
-    std::cout << "USING LSEEK CASCADE\n";
+    // std::cout << "USING LSEEK CASCADE\n";
     // if whence Matches TSEEK
     if (whence == SEEK_DATA){
         const std::string pathString(path);
