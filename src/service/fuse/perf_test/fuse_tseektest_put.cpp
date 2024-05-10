@@ -27,7 +27,7 @@ void writeCSV(const std::vector<uint64_t>& data) {
  * Usage: ./fuse_perftest_put -s <kb_size> -r <runs>
 */
 int main (int argc, char* argv[]) {
-    if (argc < 5) {
+    if (argc < 3) {
         std::cerr << "Usage: " << argv[0] << " <-s> <file size in KB> <-n> <num runs>\n";
         return 1;
     }

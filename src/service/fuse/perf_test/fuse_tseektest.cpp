@@ -52,10 +52,10 @@ void read_test(uint32_t file_size, int index, const std::filesystem::path& path,
 }
 /**
  * Put to the key /pool/read_test for a variable size bytes object filled with "1"
- * Usage: ./fuse_perftest_put -s <indexLookup> -r <timeOffsetFromNode>
+ * Usage: ./fuse_perftest_put -i <indexLookup> -o <timeOffsetFromNode>
 */
 int main (int argc, char* argv[]) {
-    if (argc < 5) {
+    if (argc < 3) {
         std::cerr << "Usage: " << argv[0] << " <-s> <file size in KB> <-n> <num runs>\n";
         return 1;
     }
@@ -75,9 +75,9 @@ int main (int argc, char* argv[]) {
     size_t byte_size = 1024;
     std::vector<uint64_t> timeStampRuns = readCSV();
 
-    for (uint64_t timeStamp : timeStampRuns){
-        std::cout << "Time: " << timeStamp <<'\n';
-    }
+    // for (uint64_t timeStamp : timeStampRuns){
+    //     std::cout << "Time: " << timeStamp <<'\n';
+    // }
     const char* filePath = "test/latest/pool/read_test";
     int file = open(filePath, O_RDWR);
     if (file < 0) {
