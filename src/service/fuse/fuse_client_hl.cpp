@@ -202,6 +202,7 @@ static off_t cascade_fs_lseek( const char *path, off_t off, int whence, struct f
     // std::cout << "USING LSEEK CASCADE\n";
     // if whence Matches TSEEK
     if (whence == SEEK_DATA){
+        node->mutex.lock();
         const std::string pathString(path);
         auto new_path = pathString.substr(7); // Need to Do this for Latest
         dbg_default_error("new_path {}, uncasted {} casted {}", new_path, off, (uint64_t) off);
@@ -210,6 +211,7 @@ static off_t cascade_fs_lseek( const char *path, off_t off, int whence, struct f
         fcc()->get_contents_by_time(node, new_path, res);   // cast to unsigned long?
                                                         // Do we just autocast?
         dbg_default_error("Exited good {}, path {} ", __PRETTY_FUNCTION__, path);
+        node->mutex.unlock();
         return off;
     }
     dbg_default_error("Exited Bad {}, path {} ", __PRETTY_FUNCTION__, path);
