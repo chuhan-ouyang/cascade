@@ -55,7 +55,7 @@ void read_test(uint32_t file_size, int index, const std::filesystem::path& path,
  * Usage: ./fuse_perftest_put -i <indexLookup> -o <timeOffsetFromNode>
 */
 int main (int argc, char* argv[]) {
-    if (argc < 5) {
+    if (argc < 3) {
         std::cerr << "Usage: " << argv[0] << " <-s> <file size in KB> <-n> <num runs>\n";
         return 1;
     }
