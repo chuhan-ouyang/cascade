@@ -149,7 +149,11 @@ struct PathTree {
         return cur;
     }
 
-    // returns nullptr on fail or location does not exist
+    /** 
+    *  @fn find the node pointed to at the path if it exists
+    *  @param path is the full path name of the node to get
+    *  @return the node if the path exist. Return nullptr on fail or if the path does not exist.
+    */
     PathTree<T>* get(const fs::path& path) {
         if(path.empty()) {
             return nullptr;

@@ -45,20 +45,57 @@ system is as following
 |-- .cascade
 ```
 
-Support READ commands:
+## Supported Commands:
 
 ```
-cd [dir]        open directory
-ls [dir]        list directory
-ls -a           list directory with attributes
-cat [file]      read file
-cat .cascade    read directory metadata information
+cd [dir]              open directory
+ls [dir]              list directory
+ls -a                 list directory with attributes
+cat [file]            read file
+cat .cascade          read directory metadata information
+echo ".." > [file]    write file
+echo ".." >> [file]   append to file
+vim [file]            vim read/write file
 ```
 
-Limitation:
+## Correctness Test
+Start a cascade fuse file system client. Test the correctness of setting the directories in the file system, reading contents of files, handling large files, writing new files and appending to current files. 
+1. run 4 cascade servers in n0 .. n3 of ../fuse_cfg
+2. cd into n4  
+```bash
+cd ../fuse_cfg/n4
+```
+3. run correctness test
+```bash
+python correct_test/testfuse_hl.py
+```
+4. after test, run umount script
+```bash
+./umount.sh
+```
 
-- Support only single-threaded fuse client
-- Current read_file keeps a buffer of file_bytes in memory, needs further
-  optimization to read large file
-- New features to come: WRITE commands to have fuse client interact with cascade
-  File write and editing commands, managing directories commands
+## Performance Test
+Use the cascade timestamp logger to record the total latency and latency breakdown of read and write operations. 
+1. run 4 cascade servers in n0 .. n3 of ../fuse_cfg
+2. cd into n4
+```bash
+cd ../fuse_cfg/n4
+```
+3. run perftest put
+```bash
+./fuse_perftest_put <-s> <file size in KB> <-n> <num runs>
+```
+4. make directory for mounting the file syste
+```bash
+mkdir test
+```
+5. run cascade fuse client
+```bash
+./cascade_fuse_client -f test
+```
+6. start a new terminal for n4
+7. run perftest
+```bash
+./fuse_perftest <read/write> <-s> <file size in KB> <-n> <num runs> <-v> (optinal)
+```
+Result is in the csv files in the n4 directory

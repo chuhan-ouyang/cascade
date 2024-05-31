@@ -80,7 +80,6 @@ static int cascade_fs_getattr(const char* path, struct stat* stbuf,
     return res;
 }
 
-
 static int cascade_fs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
                               off_t offset, struct fuse_file_info* fi,
                               enum fuse_readdir_flags flags) {
@@ -98,8 +97,13 @@ static int cascade_fs_readdir(const char* path, void* buf, fuse_fill_dir_t fille
     return 0;
 }
 
+/** 
+ *  @fn create a new node based on the path if the node doesn't exist and set fi's fh field for the node
+ *  @param path is the full path name of the node
+ *  @param fi fuse file info struct to set
+ *  @return 0 for success or error code
+*/
 static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
-    // TODO check O_ACCMODE
     auto node = fcc()->get(path, true);
     if (node == nullptr) {
         dbg_default_debug("In {} fs_open node is nulllptr", __PRETTY_FUNCTION__);
@@ -110,7 +114,7 @@ static int cascade_fs_open(const char* path, struct fuse_file_info* fi) {
         // Currently not supporting creating object pool from file system client's side
         auto op_root = fcc()->nearest_object_pool_root(path);
         if(op_root == nullptr) {
-            return -EACCES; // TODO: Add informative error message
+            return -EACCES;  
         }
         node = fcc()->add_op_key(path, op_root->data.objp_name);
         if(node == nullptr) {
@@ -143,25 +147,20 @@ static int cascade_fs_create(const char* path, mode_t mode,
     int res = cascade_fs_open(path, fi);
     return res;
 }
-    /** 
-    Notes: 
-    Works only on 64 bit systems as off_t is converted to uint64
-    Use Whence SEEK_DATA to seek by time as lseek isn't used for anything else
-    Changes the Global Instance of the File in Cascade to the expected result
 
-    Returns the first instance in time before or equal to the offset. 
-    Ex: Files at time 5, 8, 9
-    Seek 5 -> returns 5
-    Seek 7 -> return 5
-    Seek 10 -> returns 9
-    Seek 4 -> failure
-     *  @fn create a new node based on the path if the node doesn't exist or update the existing node's data
-     *  @param Path is the full path name of the final node to set
-     *  @param intermediate_data is the parents' data of final node to set if parent nodes don't exist
-     *  @param whence is the final node's data to set in the tree 
-     *  @return off_t Sets the Offset time we are looking For. 
-    */
+/** 
+Notes: 
+Works only on 64 bit systems as off_t is converted to uint64
+Use Whence SEEK_DATA to seek by time as lseek isn't used for anything else
+Changes the Global Instance of the File in Cascade to the expected result
 
+Returns the first instance in time before or equal to the offset. 
+Ex: Files at time 5, 8, 9
+Seek 5 -> returns 5
+Seek 7 -> return 5
+Seek 10 -> returns 9
+Seek 4 -> failure
+*/
 static off_t cascade_fs_lseek( const char *path, off_t off, int whence, struct fuse_file_info *fi){
     dbg_default_error("Entered {}, path {} ", __PRETTY_FUNCTION__, path);
     auto node = fcc()->get_file(path);
@@ -186,6 +185,7 @@ static off_t cascade_fs_lseek( const char *path, off_t off, int whence, struct f
     dbg_default_error("Exited Bad {}, path {} ", __PRETTY_FUNCTION__, path);
     return -ENOTSUP;
 }
+
 
 static int cascade_fs_read(const char* path, char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
     // auto node = reinterpret_cast<FSTree::Node*>(fi->fh);
@@ -231,6 +231,17 @@ static void cascade_fs_free_buf(void* buf) {
     }
 }
 
+
+/** 
+ *  @fn read the contents of the file at path and update bufp's mem field
+ *  @param path is the full path name of the file to read
+ *  @param bufp the fuse_bufvec whose first vector's mem field need to be set
+ *  @param size number of bytes to read
+ *  @param offset offset of bytes to start reading
+ *  @param fi fuse_file_info struct associated with the file at path
+ *  @param free_ptr pointer to the function for freeing memory
+ *  @return number of bytes read 
+*/
 static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
 			   size_t size, off_t offset, struct fuse_file_info *fi, void (**free_ptr)(void*)) {
     struct fuse_bufvec *src;
@@ -275,6 +286,15 @@ static int cascade_fs_read_buf_fptr(const char* path, struct fuse_bufvec **bufp,
     return size;
 }
 
+/** 
+ *  @fn write the contents of buf to the file at path 
+ *  @param path is the full path name of the file to write
+ *  @param buf bytes to write to the file
+ *  @param size number of bytes to write
+ *  @param offset offset of bytes to start writing
+ *  @param fi fuse_file_info struct associated with the file at path
+ *  @return number of bytes written 
+*/
 static int cascade_fs_write(const char* path, const char* buf, size_t size,
                             off_t offset, struct fuse_file_info* fi) {
     auto node = fcc()->get(path, true);
@@ -303,6 +323,12 @@ static int cascade_fs_flush(const char* path, struct fuse_file_info* fi) {
 }
 */
 
+/** 
+ *  @fn release the file at path. If the file's content is change, update the object in capi
+ *  @param path is the full path name of the file to release
+ *  @param fi fuse_file_info struct associated with the file at path
+ *  @return 0 for success or error code
+*/
 static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
     auto node = fcc()->get(path, true);
     if(node == nullptr) {
@@ -320,6 +346,7 @@ static int cascade_fs_release(const char* path, struct fuse_file_info* fi) {
     int res = fcc()->put_to_capi(node);
     return res;
 }
+
 
 static int cascade_fs_mkdir(const char* path, mode_t mode) {
     if(fcc()->get(path, true)) {

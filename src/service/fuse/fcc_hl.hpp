@@ -430,6 +430,11 @@ struct FuseClientContext {
         return ss.str();
     }
 
+    /** 
+    *  @fn fill in the latest content for the KEY_FILE node using capi get
+    *  @param path is the full path name of the node to update contents
+    *  @param ver is the version of the node to get from capi
+    */
     void update_contents(Node* node, const std::string& path, persistent::version_t ver) {
         dbg_default_trace("In {}, path: {}", __PRETTY_FUNCTION__, path);
         int record_id = extract_number(path);
@@ -487,10 +492,9 @@ struct FuseClientContext {
         return capi.wait_list_keys(future_result);
     }
 
-    // TODO use object pool root meta file to edit version # and such?
-    /**
-     * Get the pointer for the node if it exists and fill in the KEY_FILE node's data content via update_contents
-     * @param path: full path name for the node
+    /** 
+    *  @fn get the pointer for the node if it exist. If the file is not valid, fill in the KEY_FILE node's data content via update_contents
+    *  @param path is the full path name of the node to get
     */
      Node* get_file(const std::string& path) {
         Node* node = root->get(path);
@@ -502,10 +506,9 @@ struct FuseClientContext {
         return node;
     }
 
-    // make a trash folder? (move on delete)
-    // TODO op: new change
-    /**
-     * Get the pointer for the node if it exists and could fill in the KEY_FILE node's data content via get_file
+
+    /** 
+     * @fn get the pointer for the node if it exists and could fill in the KEY_FILE node's data content via get_file
      * @param path: full path name for the node
      * @param fill_contents: whether to fill the node's data content from capi.get from remote server
     */
@@ -522,8 +525,6 @@ struct FuseClientContext {
         return node;
     }
 
-
-    // TODO: add documentation for this function
     void update_dir(Node* node, const fs::path& prefix) {
         if (node == nullptr) {
             dbg_default_trace("In {} node is nullptr", __PRETTY_FUNCTION__);
@@ -542,12 +543,6 @@ struct FuseClientContext {
             }
         } else {
             dbg_default_trace("In {} Entered !node->objp_subdir.empty()", __PRETTY_FUNCTION__);
-            // check if readdir will call read_buf by adding prints
-            // compile and run first
-            // distinguish for which function should call get_dir vs. get_file
-            // 1) get capi.list_keys(with path),
-            // 2) cha lou using add_op_key and set objp_path
-            // 3) try not calling get_contents (empty files)
             std::string op_root = node->data.objp_name;
             dbg_default_trace("In {} op_root: {}", __PRETTY_FUNCTION__, op_root);
             auto keys = get_keys(op_root, CURRENT_VERSION);

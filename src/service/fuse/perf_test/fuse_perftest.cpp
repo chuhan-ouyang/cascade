@@ -32,8 +32,8 @@ void record_timestamp(std::vector<std::chrono::nanoseconds> timestamps, std::str
 }
 
 void read_test(uint32_t file_size, uint32_t runs, const std::filesystem::path& path, bool verify) {
-    for (uint32_t i = 1; i <= runs; ++i) {
-        std::string file_name = "read_test";
+    for (uint32_t i = 0; i < runs; ++i) {
+        std::string file_name = "read_test" + std::to_string(i);
         std::filesystem::path read_path = path / file_name;
         std::ifstream file(read_path, std::ios::binary);
         if (!file) {
