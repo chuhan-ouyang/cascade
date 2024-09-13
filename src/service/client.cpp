@@ -12,6 +12,8 @@
 #include "perftest.hpp"
 #endif//ENABLE_EVALUATION
 
+#include "mongoose.h"
+
 using namespace derecho::cascade;
 
 #define PROC_NAME   "cascade_client"
@@ -2179,11 +2181,81 @@ bool detached_test(ServiceClientAPI& capi, int argc, char** argv) {
     return do_command(capi, cmd_tokens);
 }
 
+template <typename SubgroupType>
+void get_http(ServiceClientAPI& capi, const std::string& key, persistent::version_t ver, bool stable, uint32_t subgroup_index,uint32_t shard_index, struct mg_connection * c) {
+    // std::cout << "Entered get_http with key: " << key << std::endl;
+    if constexpr (std::is_same<typename SubgroupType::KeyType,uint64_t>::value) {
+        derecho::rpc::QueryResults<const typename SubgroupType::ObjectType> result = capi.template get<SubgroupType>(
+                static_cast<uint64_t>(std::stol(key,nullptr,0)),ver,stable,subgroup_index,shard_index);
+        check_get_result(result);
+    } else if constexpr (std::is_same<typename SubgroupType::KeyType,std::string>::value) {
+        derecho::rpc::QueryResults<const typename SubgroupType::ObjectType> result = capi.template get<SubgroupType>(
+                key,ver,stable,subgroup_index,shard_index);
+        for (auto& reply_future:result.get()) {
+            auto reply = reply_future.second.get();
+            // std::cout << "reply: " << reply << std::endl;
+            const uint8_t* bytes_val = reply.blob.bytes;
+            const char* c_str_val = (const char*) bytes_val;
+            // std::cout << "c_str_val: " << c_str_val << std::endl;
+            const char* c_str_key = key.c_str();
+            mg_http_reply(c, 200, "", "Got key: %s, value: %s\n", c_str_key, c_str_val);
+        }
+    }
+}
+
+// Connection event handler function
+static void fn(struct mg_connection *c, int ev, void *ev_data) {
+  if (ev == MG_EV_HTTP_MSG) {
+    struct mg_http_message *hm = (struct mg_http_message *) ev_data;
+    if (mg_http_match_uri(hm, "/get")) {
+      struct mg_str json = hm->body;
+      double num1;
+      // parse key
+      if (mg_json_get_num(json, "$[0]", &num1)) {
+          ServiceClientAPI* capi_ptr = (ServiceClientAPI*) c->fn_data;
+          ServiceClientAPI& capi = *capi_ptr;
+          std::string key = "k" + std::to_string((int) num1);
+          // std::cout << "fn: before get http" << std::endl;
+          get_http<PersistentCascadeStoreWithStringKey>(capi, key, -1, true, 0, 0, c);
+          // std::cout << "fn: after get http" << std::endl;
+      }
+    } else if (mg_http_match_uri(hm, "/put")) {
+      struct mg_str json = hm->body;
+      double num1, num2;
+      // parse key, value
+      if (mg_json_get_num(json, "$[0]", &num1) &&
+          mg_json_get_num(json, "$[1]", &num2)) {
+          mg_http_reply(c, 200, "", "Put for key: k%d, value: v%d\n", (int) num1, (int) num2);
+          std::string key = "k" + std::to_string((int) num1);
+          std::string val = "v" + std::to_string((int) num2);
+          ServiceClientAPI* capi_ptr = (ServiceClientAPI*) c->fn_data;
+          ServiceClientAPI& capi = *capi_ptr;
+          put<PersistentCascadeStoreWithStringKey>(capi, key, val, -1, -1, 0, 0);
+      }
+    } else {
+      mg_http_reply(c, 200, "", "Cascade CBDC Web Server\n");
+    }
+  }
+}
+
+void web_service(ServiceClientAPI& capi) {
+    std::cout << "Launced web service thread: " << std::endl;
+    static const char *s_http_addr = "http://127.0.0.1:8000";    // HTTP port
+    struct mg_mgr mgr;                            // Event manager
+    mg_log_set(MG_LL_DEBUG);                      // Set log level
+    mg_mgr_init(&mgr);                            // Initialise event manager
+    mg_http_listen(&mgr, s_http_addr, fn, &capi);  // Create HTTP listener
+    for (;;) mg_mgr_poll(&mgr, 1000);                    // Infinite event loop
+    mg_mgr_free(&mgr);
+    std::cout << "Exited web service thread" << std::endl;
+}
+
 int main(int argc,char** argv) {
     if( prctl(PR_SET_NAME, PROC_NAME, 0, 0, 0) != 0 ) {
         dbg_default_debug("Failed to set proc name to {}.",PROC_NAME);
     }
     auto& capi = ServiceClientAPI::get_service_client();
+    std::thread t(web_service, std::ref(capi));
 #ifdef ENABLE_EVALUATION
     // start working thread.
     PerfTestServer pts(capi);
@@ -2195,5 +2267,6 @@ int main(int argc,char** argv) {
         if (!detached_test(capi,argc,argv))
             return -1;
     }
+    t.join(); // Join the thread
     return 0;
 }
