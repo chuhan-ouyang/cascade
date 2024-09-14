@@ -2229,12 +2229,16 @@ void handle_put_request(struct mg_connection *c, struct mg_http_message *hm) {
     char *value = mg_json_get_str(hm->body, "$[1]");  // Get the second element in the JSON array
 
     if (key && value) {
-        printf("Key: %s, Value: %s\n\n", key, value);
+        std::string key_str = key;
+        std::string value_str = value;
+        mg_http_reply(c, 200, "", "Put for key: %s, value: %s\n", key, value);
+        ServiceClientAPI* capi_ptr = (ServiceClientAPI*) c->fn_data;
+        ServiceClientAPI& capi = *capi_ptr;
+        put<PersistentCascadeStoreWithStringKey>(capi, key_str, value_str, -1, -1, 0, 0);
     } else {
         printf("Failed to parse key or value.\n");
         mg_http_reply(c, 400, "", "Bad Request\n");
     }
-
     free(key);   // Free the dynamically allocated memory for key
     free(value); // Free the dynamically allocated memory for value
 }
@@ -2245,30 +2249,8 @@ static void fn(struct mg_connection *c, int ev, void *ev_data) {
     struct mg_http_message *hm = (struct mg_http_message *) ev_data;
     if (mg_http_match_uri(hm, "/get")) {
         handle_get_request(c, hm);
-    //  struct mg_str json = hm->body;
-    //   double num1;
-    //   // parse key
-    //   if (mg_json_get_num(json, "$[0]", &num1)) {
-    //       ServiceClientAPI* capi_ptr = (ServiceClientAPI*) c->fn_data;
-    //       ServiceClientAPI& capi = *capi_ptr;
-    //       std::string key = "k" + std::to_string((int) num1);
-    //       // std::cout << "fn: before get http" << std::endl;
-    //       get_http<PersistentCascadeStoreWithStringKey>(capi, key, -1, true, 0, 0, c);
-    //       // std::cout << "fn: after get http" << std::endl;
-    //   }
     } else if (mg_http_match_uri(hm, "/put")) {
-      struct mg_str json = hm->body;
-      double num1, num2;
-      // parse key, value
-      if (mg_json_get_num(json, "$[0]", &num1) &&
-          mg_json_get_num(json, "$[1]", &num2)) {
-          mg_http_reply(c, 200, "", "Put for key: k%d, value: v%d\n", (int) num1, (int) num2);
-          std::string key = "k" + std::to_string((int) num1);
-          std::string val = "v" + std::to_string((int) num2);
-          ServiceClientAPI* capi_ptr = (ServiceClientAPI*) c->fn_data;
-          ServiceClientAPI& capi = *capi_ptr;
-          put<PersistentCascadeStoreWithStringKey>(capi, key, val, -1, -1, 0, 0);
-      }
+      handle_put_request(c, hm);
     } else {
       mg_http_reply(c, 200, "", "Cascade CBDC Web Server\n");
     }
