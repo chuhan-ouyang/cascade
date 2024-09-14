@@ -2203,22 +2203,59 @@ void get_http(ServiceClientAPI& capi, const std::string& key, persistent::versio
     }
 }
 
+void handle_get_request(struct mg_connection *c, struct mg_http_message *hm) {
+    // The body of the request is expected to be in the format ['string']
+    char *received_string = mg_json_get_str(hm->body, "$[0]");  // Extract the first element in the JSON array
+
+    if (received_string) {
+        ServiceClientAPI* capi_ptr = (ServiceClientAPI*) c->fn_data;
+        ServiceClientAPI& capi = *capi_ptr;
+        std::string key = received_string;
+        // std::cout << "fn: before get http" << std::endl;
+        get_http<PersistentCascadeStoreWithStringKey>(capi, key, -1, true, 0, 0, c);
+        // std::cout << "fn: after get http" << std::endl;
+
+        // Free the dynamically allocated memory
+        free(received_string);
+    } else {
+        // If parsing fails or the format is incorrect
+        printf("Failed to parse the incoming data.\n");
+        mg_http_reply(c, 400, "", "Bad Request\n");
+    }
+}
+
+void handle_put_request(struct mg_connection *c, struct mg_http_message *hm) {
+    char *key = mg_json_get_str(hm->body, "$[0]");  // Get the first element in the JSON array
+    char *value = mg_json_get_str(hm->body, "$[1]");  // Get the second element in the JSON array
+
+    if (key && value) {
+        printf("Key: %s, Value: %s\n\n", key, value);
+    } else {
+        printf("Failed to parse key or value.\n");
+        mg_http_reply(c, 400, "", "Bad Request\n");
+    }
+
+    free(key);   // Free the dynamically allocated memory for key
+    free(value); // Free the dynamically allocated memory for value
+}
+
 // Connection event handler function
 static void fn(struct mg_connection *c, int ev, void *ev_data) {
   if (ev == MG_EV_HTTP_MSG) {
     struct mg_http_message *hm = (struct mg_http_message *) ev_data;
     if (mg_http_match_uri(hm, "/get")) {
-      struct mg_str json = hm->body;
-      double num1;
-      // parse key
-      if (mg_json_get_num(json, "$[0]", &num1)) {
-          ServiceClientAPI* capi_ptr = (ServiceClientAPI*) c->fn_data;
-          ServiceClientAPI& capi = *capi_ptr;
-          std::string key = "k" + std::to_string((int) num1);
-          // std::cout << "fn: before get http" << std::endl;
-          get_http<PersistentCascadeStoreWithStringKey>(capi, key, -1, true, 0, 0, c);
-          // std::cout << "fn: after get http" << std::endl;
-      }
+        handle_get_request(c, hm);
+    //  struct mg_str json = hm->body;
+    //   double num1;
+    //   // parse key
+    //   if (mg_json_get_num(json, "$[0]", &num1)) {
+    //       ServiceClientAPI* capi_ptr = (ServiceClientAPI*) c->fn_data;
+    //       ServiceClientAPI& capi = *capi_ptr;
+    //       std::string key = "k" + std::to_string((int) num1);
+    //       // std::cout << "fn: before get http" << std::endl;
+    //       get_http<PersistentCascadeStoreWithStringKey>(capi, key, -1, true, 0, 0, c);
+    //       // std::cout << "fn: after get http" << std::endl;
+    //   }
     } else if (mg_http_match_uri(hm, "/put")) {
       struct mg_str json = hm->body;
       double num1, num2;
