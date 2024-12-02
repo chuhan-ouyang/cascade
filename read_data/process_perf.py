@@ -21,14 +21,19 @@ def calculate_latency(file_path):
 
     # Calculate average latency
     average_latency = latency_df['Latency'].mean()
+    variance_latency = latency_df['Latency'].var()
 
     # Print iteration vs latency
     print("Iteration vs Latency:")
     print(latency_df)
 
     # Print average latency
-    print("\nAverage Latency:")
-    print(average_latency)
+    print("\nAverage Latency (ms):")
+    print(average_latency / 1000)
+
+    print("\nVariance of Latency (ms):")
+    print(variance_latency / (1000**2))  # Convert from microseconds squared to milliseconds squared
+
 
 if __name__ == "__main__":
     # Check if the file path is provided as a command-line argument
