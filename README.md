@@ -14,7 +14,7 @@ The code specifically associated with my project is in the directory /src/servic
 2. pull latest cascade code from the given zip file in CMS submission or from: https://github.com/chuhan-ouyang/cascade/tree/chuhan_dev
 
 # Build Cascade and File System Interface
-1. ./build.sh 
+1. ./build.sh (creating the build*/ directory)
 
 
 # How to Run the File System Interface
@@ -59,6 +59,7 @@ In /test/latest, the client will see all existing object pools (from fuse_put.py
 The client can read/write these files and they will be reflected in the distributed system.
 
 # How to Run the Read/Write Performance Test
+Run server nodes as above.
 1. In client node put objects for the read test (if performing read benchmarks): 
 ```bash
 cd /root/workspace/cascade/build-Release/src/service/fuse/fuse_cfg/n4
