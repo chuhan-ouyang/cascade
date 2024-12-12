@@ -14,7 +14,7 @@ The code specifically associated with my project is in the directory /src/servic
 2. pull latest cascade code from the given zip file in CMS submission or from: https://github.com/chuhan-ouyang/cascade/tree/chuhan_dev
 
 # Build Cascade and File System Interface
-1. ./build.sh (creating the build*/ directory)
+1. ./build_cascade.sh (creating the build*/ directory, ex. build-Release)
 
 
 # How to Run the File System Interface
